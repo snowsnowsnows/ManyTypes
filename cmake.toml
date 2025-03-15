@@ -1,0 +1,15 @@
+[project]
+name = "manytypes"
+
+[target.libclang]
+type = "interface"
+include-directories = ["extern/include"]
+link-libraries = ["extern/lib/libclang.lib"]
+
+[target.typeparser]
+type = "executable"
+sources = ["src/**"]
+headers = ["include/**"]
+compile-features = ["cxx_std_23"]
+link-libraries = ["::libclang"]
+include-directories = ["include"]

@@ -24,7 +24,27 @@ if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS cmake.toml)
 endif()
 
-project(manytypes)
+include("cmake/msvc-static-runtime.cmake")
+include("cmake/msvc-configurations.cmake")
+
+project(ManyTypes)
+
+include(FetchContent)
+
+# Fix warnings about DOWNLOAD_EXTRACT_TIMESTAMP
+if(POLICY CMP0135)
+	cmake_policy(SET CMP0135 NEW)
+endif()
+message(STATUS "Fetching x64dbg...")
+FetchContent_Declare(x64dbg
+	URL
+		"https://sourceforge.net/projects/x64dbg/files/snapshots/snapshot_2023-06-10_18-05.zip"
+	URL_HASH
+		SHA1=04468bd61fb36d6b10d17f342f03ef12f5b2ce62
+)
+FetchContent_MakeAvailable(x64dbg)
+
+include("cmake/x64dbg.cmake")
 
 # Target: libclang
 add_library(libclang INTERFACE)
@@ -37,47 +57,87 @@ target_link_libraries(libclang INTERFACE
 	"${CMAKE_CURRENT_SOURCE_DIR}/extern/lib/libclang.lib"
 )
 
-# Target: typeparser
-set(typeparser_SOURCES
+# Target: manytypes-lib
+set(manytypes-lib_SOURCES
 	cmake.toml
-	"include/clang-database.h"
-	"include/clang-utils.h"
-	"include/database.h"
-	"include/members/field.h"
-	"include/struct/aliastype.h"
-	"include/struct/array.h"
-	"include/struct/basetype.h"
-	"include/struct/enum.h"
-	"include/struct/function.h"
-	"include/struct/models/named_sized.h"
-	"include/struct/models/params.h"
-	"include/struct/structure.h"
-	"src/main.cpp"
-	"src/struct/structure.cpp"
+	"manytypes-lib/include/manytypes-lib/clang-database.h"
+	"manytypes-lib/include/manytypes-lib/clang-utils.h"
+	"manytypes-lib/include/manytypes-lib/database.h"
+	"manytypes-lib/include/manytypes-lib/members/field.h"
+	"manytypes-lib/include/manytypes-lib/struct/aliastype.h"
+	"manytypes-lib/include/manytypes-lib/struct/array.h"
+	"manytypes-lib/include/manytypes-lib/struct/basetype.h"
+	"manytypes-lib/include/manytypes-lib/struct/enum.h"
+	"manytypes-lib/include/manytypes-lib/struct/function.h"
+	"manytypes-lib/include/manytypes-lib/struct/models/named_sized.h"
+	"manytypes-lib/include/manytypes-lib/struct/models/params.h"
+	"manytypes-lib/include/manytypes-lib/struct/structure.h"
+	"manytypes-lib/include/manytypes.h"
+	"manytypes-lib/src/main.cpp"
+	"manytypes-lib/src/struct/structure.cpp"
 )
 
-add_executable(typeparser)
+add_library(manytypes-lib)
 
-target_sources(typeparser PRIVATE ${typeparser_SOURCES})
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${typeparser_SOURCES})
+target_sources(manytypes-lib PRIVATE ${manytypes-lib_SOURCES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${manytypes-lib_SOURCES})
 
-target_compile_features(typeparser PRIVATE
+target_compile_features(manytypes-lib PUBLIC
 	cxx_std_23
 )
 
-target_include_directories(typeparser PRIVATE
-	include
+target_include_directories(manytypes-lib PUBLIC
+	"manytypes-lib/include"
 )
 
 if(NOT TARGET libclang)
-	message(FATAL_ERROR "Target \"libclang\" referenced by \"typeparser\" does not exist!")
+	message(FATAL_ERROR "Target \"libclang\" referenced by \"manytypes-lib\" does not exist!")
 endif()
 
-target_link_libraries(typeparser PRIVATE
+target_link_libraries(manytypes-lib PUBLIC
 	libclang
+)
+
+# Target: manytypes-sandbox
+set(manytypes-sandbox_SOURCES
+	cmake.toml
+	"manytypes-sandbox/main.cpp"
+)
+
+add_executable(manytypes-sandbox)
+
+target_sources(manytypes-sandbox PRIVATE ${manytypes-sandbox_SOURCES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${manytypes-sandbox_SOURCES})
+
+target_compile_features(manytypes-sandbox PRIVATE
+	cxx_std_23
+)
+
+target_link_libraries(manytypes-sandbox PRIVATE
+	manytypes
 )
 
 get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
 if(NOT CMKR_VS_STARTUP_PROJECT)
-	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT typeparser)
+	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT manytypes-sandbox)
 endif()
+
+# Target: manytypes-plugin
+set(manytypes-plugin_SOURCES
+	cmake.toml
+	"manytypes-plugin/.gitattributes"
+	"manytypes-plugin/.gitignore"
+	"manytypes-plugin/src/plugin.cpp"
+	"manytypes-plugin/src/plugin.h"
+	"manytypes-plugin/src/pluginmain.cpp"
+	"manytypes-plugin/src/pluginmain.h"
+)
+
+x64dbg_plugin(manytypes-plugin)
+
+target_sources(manytypes-plugin PRIVATE ${manytypes-plugin_SOURCES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${manytypes-plugin_SOURCES})
+
+target_link_libraries(manytypes-plugin PUBLIC
+	manytypes
+)

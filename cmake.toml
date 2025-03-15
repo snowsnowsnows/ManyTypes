@@ -1,15 +1,41 @@
 [project]
-name = "manytypes"
+name = "ManyTypes"
+include-before = [
+    "cmake/msvc-static-runtime.cmake",
+    "cmake/msvc-configurations.cmake",
+]
+
+[fetch-content.x64dbg]
+url = "https://sourceforge.net/projects/x64dbg/files/snapshots/snapshot_2023-06-10_18-05.zip"
+sha1 = "04468bd61fb36d6b10d17f342f03ef12f5b2ce62"
+include-after = ["cmake/x64dbg.cmake"]
 
 [target.libclang]
 type = "interface"
 include-directories = ["extern/include"]
 link-libraries = ["extern/lib/libclang.lib"]
 
-[target.typeparser]
-type = "executable"
-sources = ["src/**"]
-headers = ["include/**"]
+[target.manytypes-lib]
+type = "library"
+sources = ["manytypes-lib/src/**"]
+headers = ["manytypes-lib/include/**"]
 compile-features = ["cxx_std_23"]
 link-libraries = ["::libclang"]
-include-directories = ["include"]
+include-directories = ["manytypes-lib/include"]
+
+[target.manytypes-sandbox]
+type = "executable"
+sources = ["manytypes-sandbox/**"]
+headers = ["manytypes-sandbox/**"]
+compile-features = ["cxx_std_23"]
+link-libraries = ["manytypes"]
+
+[template.plugin]
+type = "shared"
+add-function = "x64dbg_plugin"
+
+[target.manytypes-plugin]
+type = "plugin"
+sources = ["manytypes-plugin/**"]
+headers = ["manytypes-plugin/**"]
+link-libraries = ["manytypes"]

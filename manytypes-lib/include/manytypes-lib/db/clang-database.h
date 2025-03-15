@@ -1,18 +1,13 @@
 #pragma once
-#include "database.h"
-#include "clang-utils.h"
+#include "manytypes-lib/db/database.h"
+#include "manytypes-lib/util/clang-utils.h"
 
 class clang_database_t
 {
 public:
-    clang_database_t( )
+    explicit clang_database_t( type_database_t& type_db )
+        : type_db( &type_db )
     {
-    }
-
-    static clang_database_t& get( )
-    {
-        static clang_database_t inst = { };
-        return inst;
     }
 
     type_id get_create_type_id( CXType type )
@@ -39,8 +34,7 @@ public:
         return type_map.contains( type );
     }
 
-    bool
-
 private:
     std::unordered_map<CXType, type_id, cx_type_hash, cx_type_equal> type_map;
+    type_database_t* type_db;
 };

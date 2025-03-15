@@ -2,7 +2,7 @@
 #include <string>
 #include <utility>
 
-#include "struct/models/named_sized.h"
+#include "manytypes-lib/struct/models/named_sized.h"
 
 class base_type_t final : public named_sized_type_t
 {

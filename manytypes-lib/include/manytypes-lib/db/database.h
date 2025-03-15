@@ -5,8 +5,8 @@
 #include <unordered_set>
 #include <variant>
 
-#include "struct/aliastype.h"
-#include "struct/basetype.h"
+#include "struct/alias.h"
+#include "struct/base.h"
 #include "struct/array.h"
 #include "struct/enum.h"
 #include "struct/function.h"
@@ -49,12 +49,6 @@ public:
 
         for ( auto& t : types )
             insert_type( t );
-    }
-
-    static type_database_t& get( )
-    {
-        static auto inst = type_database_t( );
-        return inst;
     }
 
     size_t size_of( const type_id id )

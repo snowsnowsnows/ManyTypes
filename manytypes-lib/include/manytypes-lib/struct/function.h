@@ -3,8 +3,8 @@
 #include <utility>
 #include <vector>
 
-#include "members/field.h"
-#include "struct/models/named_sized.h"
+#include "models/field.h"
+#include "manytypes-lib/struct/models/named_sized.h"
 
 enum class call_conv
 {
@@ -15,7 +15,7 @@ enum class call_conv
     fastcall ,
 };
 
-class function_t : public named_sized_type_t
+class function_t final : public named_sized_type_t
 {
 public:
     function_t( std::string name,

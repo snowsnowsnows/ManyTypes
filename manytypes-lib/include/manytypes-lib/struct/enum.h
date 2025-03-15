@@ -3,9 +3,9 @@
 #include <string>
 #include <vector>
 
-#include "struct/models/named_sized.h"
+#include "manytypes-lib/struct/models/named_sized.h"
 
-class enum_t : public named_sized_type_t
+class enum_t final : public named_sized_type_t
 {
 public:
     explicit enum_t( const type_id underlying_type )

@@ -1,5 +1,5 @@
 #pragma once
-#include "models/named_sized.h"
+#include "manytypes-lib/struct/models/named_sized.h"
 
 class array_t final : public named_sized_type_t
 {

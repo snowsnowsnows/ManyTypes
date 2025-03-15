@@ -1,7 +1,5 @@
 #pragma once
-
-#include "members/field.h"
-#include "struct/models/sized.h"
+#include "manytypes-lib/struct/models/named_sized.h"
 
 class alias_type_t final : public named_sized_type_t
 {

@@ -60,20 +60,21 @@ target_link_libraries(libclang INTERFACE
 # Target: manytypes-lib
 set(manytypes-lib_SOURCES
 	cmake.toml
-	"manytypes-lib/include/manytypes-lib/clang-database.h"
-	"manytypes-lib/include/manytypes-lib/clang-utils.h"
-	"manytypes-lib/include/manytypes-lib/database.h"
-	"manytypes-lib/include/manytypes-lib/members/field.h"
-	"manytypes-lib/include/manytypes-lib/struct/aliastype.h"
+	"manytypes-lib/include/manytypes-lib/db/clang-database.h"
+	"manytypes-lib/include/manytypes-lib/db/database.h"
+	"manytypes-lib/include/manytypes-lib/manytypes.h"
+	"manytypes-lib/include/manytypes-lib/struct/alias.h"
 	"manytypes-lib/include/manytypes-lib/struct/array.h"
-	"manytypes-lib/include/manytypes-lib/struct/basetype.h"
+	"manytypes-lib/include/manytypes-lib/struct/base.h"
 	"manytypes-lib/include/manytypes-lib/struct/enum.h"
 	"manytypes-lib/include/manytypes-lib/struct/function.h"
+	"manytypes-lib/include/manytypes-lib/struct/models/field.h"
 	"manytypes-lib/include/manytypes-lib/struct/models/named_sized.h"
-	"manytypes-lib/include/manytypes-lib/struct/models/params.h"
 	"manytypes-lib/include/manytypes-lib/struct/structure.h"
-	"manytypes-lib/include/manytypes.h"
+	"manytypes-lib/include/manytypes-lib/util/clang-context.h"
+	"manytypes-lib/include/manytypes-lib/util/clang-utils.h"
 	"manytypes-lib/src/main.cpp"
+	"manytypes-lib/src/manytypes.cpp"
 	"manytypes-lib/src/struct/structure.cpp"
 )
 

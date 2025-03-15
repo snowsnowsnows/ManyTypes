@@ -1,16 +1,4 @@
-#pragma once
-#include <cassert>
-
-#include "clang-c/Index.h"
-
-#include <filesystem>
-#include <format>
-#include <fstream>
-
-#include "database.h"
-#include "clang-database.h"
-
-#include "struct/enum.h"
+#include "manytypes-lib/manytypes.h"
 
 #define ALIGN_UP(value, alignment) (((value) + (alignment) - 1) & ~((alignment) - 1))
 
@@ -20,49 +8,43 @@ struct overloads : Ts...
     using Ts::operator()...;
 };
 
-
-type_id insert_type( const CXType& type )
+type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
 {
     auto lower_type = type;
     while ( true )
     {
         // if we already have seen this type that means all the base types have been created
-        if ( clang_database_t::get( ).is_type_defined( lower_type ) )
+        if ( client_data->clang_db.is_type_defined( lower_type ) )
             break;
 
         if ( lower_type.kind == CXType_ConstantArray )
         {
             array_t arr( true, clang_getArraySize( lower_type ) );
-            clang_database_t::get( ).save_type_id( lower_type, type_database_t::get( ).insert_type( arr ) );
+            client_data->clang_db.save_type_id( lower_type, client_data->type_db.insert_type( arr ) );
 
             lower_type = clang_getArrayElementType( lower_type );
         }
         else if ( lower_type.kind == CXType_Pointer )
         {
             pointer_t ptr( clang_getArraySize( lower_type ) );
-            clang_database_t::get( ).save_type_id( lower_type, type_database_t::get( ).insert_type( ptr ) );
+            client_data->clang_db.save_type_id( lower_type, client_data->type_db.insert_type( ptr ) );
 
             lower_type = clang_getPointeeType( lower_type );
         }
         else
         {
             // we reached the base type, verify that it exists
-            assert( clang_database_t::get( ).is_type_defined( lower_type ), "type id must exist" );
+            assert( client_data->clang_db.is_type_defined( lower_type ), "type id must exist" );
             break;
         };
     }
 
-    return clang_database_t::get( ).get_type_id( type );
+    return client_data->clang_db.get_type_id( type );
 }
-
-struct client_data_t
-{
-    bool failed = false;
-};
 
 CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData data )
 {
-    client_data_t* client_data = static_cast<client_data_t*>(data);
+    clang_context_t* client_data = static_cast<clang_context_t*>(data);
 
     const auto cursor_kind = clang_getCursorKind( cursor );
     switch ( cursor_kind )
@@ -98,8 +80,8 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                 true
             };
 
-            auto decl_type_id = type_database_t::get( ).insert_type( sm );
-            clang_database_t::get( ).save_type_id( clang_getCursorType( cursor ), decl_type_id );
+            auto decl_type_id = client_data->type_db.insert_type( sm );
+            client_data->clang_db.save_type_id( clang_getCursorType( cursor ), decl_type_id );
 
             const auto parent_cursor = clang_getCursorSemanticParent( cursor );
             if ( cursor_kind == CXCursor_UnionDecl && !clang_Cursor_isNull( parent_cursor ) &&
@@ -115,7 +97,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                             const auto fields = s.get_fields( );
 
                             uint32_t target_bit_offset = 0;
-                            if ( !s.is_union && !fields.empty( ) )
+                            if ( !s.is_union( ) && !fields.empty( ) )
                             {
                                 auto& back_field = fields.back( );
                                 const auto prev_end_offset = back_field.bit_offset + ( back_field.bit_size + 7 ) / 8;
@@ -137,16 +119,16 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                         {
                             assert( true, "unexpected exception occurred" );
                         }
-                    }, type_database_t::get( ).lookup_type( clang_database_t::get( ).get_type_id( parent_type ) ) );
+                    }, client_data->type_db.lookup_type( client_data->clang_db.get_type_id( parent_type ) ) );
             }
 
             return cursor_kind == CXCursor_ClassDecl ? CXChildVisit_Continue : CXChildVisit_Recurse;
         }
     case CXCursor_EnumDecl:
         {
-            enum_t em{ clang_database_t::get( ).get_create_type_id( clang_getEnumDeclIntegerType( cursor ) ) };
-            clang_database_t::get( ).save_type_id(
-                clang_getCursorType( cursor ), type_database_t::get( ).insert_type( em ) );
+            enum_t em{ client_data->clang_db.get_create_type_id( clang_getEnumDeclIntegerType( cursor ) ) };
+            client_data->clang_db.save_type_id( clang_getCursorType( cursor ), client_data->type_db.insert_type( em ) );
+
             break;
         }
     }
@@ -160,8 +142,8 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
 
             const CXType parent_type = clang_getCursorType( parent );
             auto em = std::get<enum_t>(
-                type_database_t::get( ).lookup_type(
-                    clang_database_t::get( ).get_type_id( parent_type ) ) );
+                client_data->type_db.lookup_type(
+                    client_data->clang_db.get_type_id( parent_type ) ) );
 
             const auto type_name = clang_spelling_str( cursor );
             em.insert_member( clang_getEnumConstantDeclValue( cursor ), type_name );
@@ -193,7 +175,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                             bit_offset != CXTypeLayoutError_InvalidFieldName,
                             "field offset is invalid" );
 
-                        const type_id field_type_id = insert_type( underlying_type );
+                        const type_id field_type_id = unwind_complex_type( client_data, underlying_type );
 
                         bool revised_field = false;
 
@@ -219,13 +201,13 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                                 } );
                         }
                     },
-                }, type_database_t::get( ).lookup_type( clang_database_t::get( ).get_type_id( parent_type ) ) );
+                }, client_data->type_db.lookup_type( client_data->clang_db.get_type_id( parent_type ) ) );
             break;
         }
     case CXCursor_TypedefDecl:
         {
             CXType underlying_type = clang_getTypedefDeclUnderlyingType( cursor );
-            if ( clang_database_t::get( ).is_type_defined( underlying_type ) ) // skip repeating typedefs
+            if ( client_data->clang_db.is_type_defined( underlying_type ) ) // skip repeating typedefs
                 return CXChildVisit_Recurse;
 
             switch ( underlying_type.kind )
@@ -248,38 +230,38 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                     function_t fun_proto{
                         clang_spelling_str( cursor ),
                         conv,
-                        clang_database_t::get( ).get_type_id( clang_getResultType( underlying_type ) ),
+                        client_data->clang_db.get_type_id( clang_getResultType( underlying_type ) ),
                         [&] -> std::vector<type_id>
                         {
                             std::vector<type_id> types;
                             for ( auto i = 0; i < clang_getNumArgTypes( underlying_type ); i++ )
                                 types.push_back(
-                                    clang_database_t::get( ).get_type_id( clang_getArgType( underlying_type, i ) ) );
+                                    client_data->clang_db.get_type_id( clang_getArgType( underlying_type, i ) ) );
 
                             return types;
                         }( )
                     };
 
-                    clang_database_t::get( ).save_type_id(
-                        clang_getCursorType( cursor ), type_database_t::get( ).insert_type( fun_proto ) );
+                    client_data->clang_db.save_type_id(
+                        clang_getCursorType( cursor ), client_data->type_db.insert_type( fun_proto ) );
                     break;
                 }
             default:
                 {
-                    const type_id id = insert_type( underlying_type );
-                    if ( !clang_database_t::get( ).is_type_defined( underlying_type ) )
+                    const type_id id = unwind_complex_type( client_data, underlying_type );
+                    if ( !client_data->clang_db.is_type_defined( underlying_type ) )
                     {
                         client_data->failed = true;
                         return CXChildVisit_Break;
                     }
 
                     const auto type_name = clang_spelling_str( cursor );
-                    type_id typedef_id = type_database_t::get( ).insert_type(
+                    type_id typedef_id = client_data->type_db.insert_type(
                         alias_type_t(
                             type_name, id
                         ) );
 
-                    clang_database_t::get( ).save_type_id( clang_getCursorType( cursor ), typedef_id );
+                    client_data->clang_db.save_type_id( clang_getCursorType( cursor ), typedef_id );
                     break;
                 }
             }
@@ -289,22 +271,66 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
     return CXChildVisit_Recurse;
 }
 
-void parse_header( const std::string& header_data )
-{
-
-}
-
-int main( )
+std::optional<type_database_t> parse_header( std::filesystem::path& header_path )
 {
     const std::filesystem::path current_path = std::filesystem::current_path( );
     const std::filesystem::path stub_source = current_path / "stub_include.cpp";
-    const std::vector<std::string> target_headers = {
-        "phnt.h"
-    };
 
     std::ofstream include_stub( stub_source, std::ios::out | std::ios::trunc );
-    for ( auto& include : target_headers )
-        include_stub << std::format( "#include <{}>\n", include );
+    include_stub << header_data;
 
     include_stub.close( );
+
+    const std::vector<std::string> clang_args =
+    {
+        // "-I" + std::string(argv[1]),
+        "-x",
+        "c++",
+        "-fms-extensions",
+        "-Xclang",
+        "-ast-dump",
+        "-fsyntax-only",
+        "-fms-extensions",
+    };
+
+    std::vector<const char*> c_args;
+    for ( const auto& arg : clang_args )
+        c_args.push_back( arg.c_str( ) );
+
+    if ( const auto index = clang_createIndex( 0, 1 ) )
+    {
+        CXTranslationUnit tu = nullptr;
+        const auto error = clang_parseTranslationUnit2(
+            index,
+            stub_source.string( ).c_str( ),
+            c_args.data( ),
+            static_cast<int>(c_args.size( )),
+            nullptr,
+            0,
+            CXTranslationUnit_DetailedPreprocessingRecord |
+            CXTranslationUnit_PrecompiledPreamble |
+            CXTranslationUnit_SkipFunctionBodies |
+            CXTranslationUnit_ForSerialization,
+            &tu );
+
+        if ( error == CXError_Success )
+        {
+            clang_context_t ctx{
+                .clang_db = { },
+                .type_db = { },
+                .failed = false
+            };
+
+            const CXCursor cursor = clang_getTranslationUnitCursor( tu );
+            clang_visitChildren( cursor, visit_cursor, static_cast<CXClientData>(&ctx) );
+
+            if ( !ctx.failed )
+                return ctx.type_db;
+        }
+        else printf( "CXError: %d\n", error );
+
+        clang_disposeTranslationUnit( tu );
+    }
+
+    return std::nullopt;
 }

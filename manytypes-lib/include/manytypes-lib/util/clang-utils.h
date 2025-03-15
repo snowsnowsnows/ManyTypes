@@ -7,19 +7,23 @@
 #include <clang-c/Index.h>
 #include <string_view>
 
-struct cx_type_hash {
-    std::size_t operator()(const CXType &t) const noexcept {
-        const std::size_t hash1 = std::hash<int>{}(t.kind);
-        const std::size_t hash2 = std::hash<void *>{}(t.data[0]);
-        const std::size_t hash3 = std::hash<void *>{}(t.data[1]);
+struct cx_type_hash
+{
+    std::size_t operator()( const CXType& t ) const noexcept
+    {
+        const std::size_t hash1 = std::hash<int>{ }( t.kind );
+        const std::size_t hash2 = std::hash<void*>{ }( t.data[ 0 ] );
+        const std::size_t hash3 = std::hash<void*>{ }( t.data[ 1 ] );
 
         return hash1 ^ hash2 << 1 ^ hash3 << 2;
     }
 };
 
-struct cx_type_equal {
-    bool operator()(const CXType &lhs, const CXType &rhs) const {
-        return clang_equalTypes(lhs, rhs);
+struct cx_type_equal
+{
+    bool operator()( const CXType& lhs, const CXType& rhs ) const
+    {
+        return clang_equalTypes( lhs, rhs );
     }
 };
 

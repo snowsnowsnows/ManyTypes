@@ -10,14 +10,6 @@ public:
     {
     }
 
-    type_id get_create_type_id( CXType type )
-    {
-        if ( type_map.contains( type ) )
-            return type_map[ type ];
-
-        auto id = type_database_t::
-    }
-
     void save_type_id( const CXType& type, const type_id id )
     {
         type_map.insert( { type, id } );

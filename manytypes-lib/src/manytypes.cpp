@@ -76,10 +76,10 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
 
             structure_t sm{
                 structure_settings{
+                    .name = type_name,
                     .align = decl_type_align,
                     .size = decl_type_size,
                     .is_union = cursor_kind == CXCursor_UnionDecl,
-                    .name = type_name
                 },
                 true
             };
@@ -92,7 +92,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                 auto prev_decl = std::get<structure_t>( client_data->type_db.lookup_type( decl_type_id ) );
 
                 // todo this is terrible design. this should be fixed
-                type_size_resolver resolver = [] ( type_id id ) { return static_cast<uint32_t>(0); };
+                type_size_resolver resolver = [] ( type_id id ) { return static_cast<size_t>(0); };
                 auto prev_size = prev_decl.size_of( resolver );
                 auto prev_fields_count = prev_decl.get_fields( ).size( );
 
@@ -114,7 +114,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
             {
                 // check if anonymous union because it must mean
                 auto parent_type = clang_getCursorType( parent_cursor );
-                std::visit<type_id_data>(
+                std::visit(
                     overloads
                     {
                         [&] ( structure_t& s )
@@ -136,8 +136,8 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                                     .bit_offset = target_bit_offset,
                                     .bit_size = decl_type_size,
                                     .is_bit_field = false,
+                                    .name = "",
                                     .type_id = decl_type_id,
-                                    .name = ""
                                 } );
                         },
                         [] ( auto&& )
@@ -153,7 +153,8 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         {
             const auto type_name = clang_spelling_str( cursor );
 
-            enum_t em{ type_name, client_data->clang_db.get_create_type_id( clang_getEnumDeclIntegerType( cursor ) ) };
+            // todo add check that underlying type exists
+            enum_t em{ type_name, client_data->clang_db.get_type_id( clang_getEnumDeclIntegerType( cursor ) ) };
             client_data->clang_db.save_type_id( clang_getCursorType( cursor ), client_data->type_db.insert_type( em ) );
 
             break;
@@ -186,7 +187,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
             auto parent_type = clang_getCursorType( parent );
             auto underlying_type = clang_getCursorType( cursor );
 
-            std::visit<type_id_data>(
+            std::visit(
                 overloads
                 {
                     [&] ( structure_t& s )
@@ -221,13 +222,15 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                         {
                             s.add_field(
                                 base_field_t{
-                                    .type_id = field_type_id,
-                                    .bit_size = static_cast<uint32_t>(bit_width),
                                     .bit_offset = static_cast<uint32_t>(bit_offset),
-                                    .is_bit_field = clang_Cursor_isBitField( cursor ) != 0
+                                    .bit_size = static_cast<uint32_t>(bit_width),
+                                    .is_bit_field = clang_Cursor_isBitField( cursor ) != 0,
+                                    .name = "",
+                                    .type_id = field_type_id,
                                 } );
                         }
                     },
+                    [&] ( auto&& ) { },
                 }, client_data->type_db.lookup_type( client_data->clang_db.get_type_id( parent_type ) ) );
             break;
         }
@@ -244,13 +247,13 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                     call_conv conv = call_conv::unk;
                     switch ( clang_getFunctionTypeCallingConv( underlying_type ) )
                     {
-                    case CXCallingConv_C: conv = call_conv::cdecl;
+                    case CXCallingConv_C: conv = call_conv::cc_cdecl;
                         break;
-                    case CXCallingConv_X86StdCall: conv = call_conv::stdcall;
+                    case CXCallingConv_X86StdCall: conv = call_conv::cc_stdcall;
                         break;
-                    case CXCallingConv_X86FastCall: conv = call_conv::fastcall;
+                    case CXCallingConv_X86FastCall: conv = call_conv::cc_fastcall;
                         break;
-                    case CXCallingConv_X86ThisCall: conv = call_conv::thiscall;
+                    case CXCallingConv_X86ThisCall: conv = call_conv::cc_thiscall;
                         break;
                     }
 
@@ -258,7 +261,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                         clang_spelling_str( cursor ),
                         conv,
                         client_data->clang_db.get_type_id( clang_getResultType( underlying_type ) ),
-                        [&] -> std::vector<type_id>
+                        [&]( )-> std::vector<type_id>
                         {
                             std::vector<type_id> types;
                             for ( auto i = 0; i < clang_getNumArgTypes( underlying_type ); i++ )
@@ -371,10 +374,10 @@ std::vector<type_id> order_database_nodes( const type_database_t& db )
         const auto it = types.find( id );
         if ( it != types.end( ) )
         {
-            for ( auto dep : getDependencies( it->second ) )
-            {
-                dfs_type( dep );
-            }
+            //for ( auto dep : getDependencies( it->second ) )
+            //{
+            //    dfs_type( dep );
+            //}
         }
 
         rec_stack.erase( id );

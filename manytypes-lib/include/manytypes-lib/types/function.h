@@ -8,31 +8,32 @@
 
 enum class call_conv
 {
-    unk = 0 ,
-    cdecl ,
-    stdcall ,
-    thiscall ,
-    fastcall ,
+    unk ,
+    cc_cdecl ,
+    cc_stdcall ,
+    cc_thiscall ,
+    cc_fastcall ,
 };
 
 class function_t final : public named_sized_type_t
 {
 public:
-    function_t( std::string name,
-                const call_conv conv,
-                const type_id return_type,
-                const std::vector<type_id>& args
+    function_t(
+        std::string name,
+        const call_conv conv,
+        const type_id return_type,
+        const std::vector<type_id>& args
     )
         : name( std::move( name ) ), conv( conv ), return_type( return_type ), args( args )
     {
     }
 
-    std::string name_of( ) override
+    std::string name_of( ) const override
     {
         return name;
     }
 
-    size_t size_of( type_size_resolver& tr ) override
+    size_t size_of( type_size_resolver& tr ) const override
     {
         return 0;
     }

@@ -16,7 +16,7 @@ using base_type_t = std::variant<function_t, array_t, pointer_t, basic_type_t>;
 using type_id_data = std::variant<
     structure_t, enum_t,
     alias_type_t,
-    base_type_t
+    function_t, array_t, pointer_t, basic_type_t
 >;
 
 class type_database_t
@@ -26,7 +26,7 @@ public:
     {
         curr_type_id = 0;
 
-        constexpr basic_type_t types[ ] = {
+        basic_type_t types[ ] = {
             { "bool", sizeof( bool ) * 8 },
             { "char", sizeof( char ) * 8 },
             { "unsigned char", sizeof( unsigned char ) * 8 },
@@ -53,13 +53,14 @@ public:
     size_t size_of( const type_id id )
     {
         assert( type_info.contains(id), "type id is not present in type database" );
-        return size_of( type_info[ id ] );
+        //return size_of( type_info[ id ] );
+        return 0;
     }
 
     std::string name_of( const type_id id )
     {
         assert( type_info.contains(id), "type id is not present in type database" );
-        return name_of( type_info[ id ] );
+        return name_of( type_info.at( id ) );
     }
 
     type_id insert_type( const type_id_data& data )
@@ -75,14 +76,13 @@ public:
     void update_type( const type_id id, const type_id_data& data )
     {
         assert( type_info.contains( id ), "type with current id must exist" );
-
-        type_info[ id ] = data;
+        type_info.at( id ) = data;
     }
 
     type_id_data lookup_type( const type_id id )
     {
         assert( type_info.contains(id), "type info must contain id" );
-        return type_info[ id ];
+        return type_info.at( id );
     }
 
     bool contains_type( const type_id id )
@@ -101,14 +101,20 @@ private:
 
     type_id curr_type_id;
 
-    static size_t size_of( const type_id_data& id )
-    {
-        return std::visit(
-            [] ( const auto& obj )
-            {
-                return obj.size_of( );
-            }, id );
-    }
+    //size_t size_of( const type_id_data& id )
+    //{
+    //    // todo not good.... cause crash on circular dependency
+    //    auto res = [&] ( type_id s_id ) -> size_t
+    //    {
+    //        return size_of( type_info.at( s_id ) );
+    //    };
+    //
+    //    return std::visit(
+    //        [&res] ( const auto& obj )
+    //        {
+    //            return obj.size_of( res );
+    //        }, id );
+    //}
 
     static std::string name_of( const type_id_data& id )
     {

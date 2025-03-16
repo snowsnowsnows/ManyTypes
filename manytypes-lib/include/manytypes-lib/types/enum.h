@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "manytypes-lib/types/models/named_sized.h"
@@ -8,17 +9,17 @@
 class enum_t final : public named_sized_type_t, public dependent_t
 {
 public:
-    explicit enum_t( const std::string& name, const type_id underlying_type )
-        : enum_name( name ), underlying_type( underlying_type )
+    explicit enum_t( std::string name, const type_id underlying_type )
+        : enum_name( std::move( name ) ), underlying_type( underlying_type )
     {
     }
 
-    std::string name_of( ) override
+    std::string name_of( ) const override
     {
         return enum_name;
     }
 
-    size_t size_of( type_size_resolver& tr ) override
+    size_t size_of( type_size_resolver& tr ) const override
     {
         return tr( underlying_type );
     }

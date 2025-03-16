@@ -9,12 +9,12 @@ public:
     {
     }
 
-    std::string name_of( ) override
+    std::string name_of( ) const override
     {
         return alias;
     }
 
-    size_t size_of( type_size_resolver& tr ) override
+    size_t size_of( type_size_resolver& tr ) const override
     {
         return tr( type );
     }

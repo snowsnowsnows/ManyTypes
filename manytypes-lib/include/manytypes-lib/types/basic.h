@@ -12,12 +12,12 @@ public:
     {
     }
 
-    std::string name_of( ) override
+    std::string name_of( ) const override
     {
         return name;
     }
 
-    size_t size_of( type_size_resolver& tr ) override
+    size_t size_of( type_size_resolver& tr ) const override
     {
         return size;
     }
@@ -40,12 +40,12 @@ public:
     {
     }
 
-    std::string name_of( ) override
+    std::string name_of( ) const override
     {
         return "";
     }
 
-    size_t size_of( type_size_resolver& tr ) override
+    size_t size_of( type_size_resolver& tr ) const override
     {
         return fixed_size ? size * tr( base ) : sizeof( void* );
     }
@@ -70,12 +70,12 @@ public:
     {
     }
 
-    std::string name_of( ) override
+    std::string name_of( ) const override
     {
         return "";
     }
 
-    size_t size_of( type_size_resolver& tr ) override
+    size_t size_of( type_size_resolver& tr ) const override
     {
         return sizeof( void* );
     }

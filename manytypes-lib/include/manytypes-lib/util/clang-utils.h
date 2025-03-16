@@ -68,46 +68,6 @@ private:
     std::string_view str_view;
 };
 
-inline std::optional<std::string> get_type_name( const CXType& type, const uint32_t pointer_level = 0 )
-{
-    auto current_type = clang_getUnqualifiedType( type );
-    if ( current_type.kind == CXType_ConstantArray ||
-        current_type.kind == CXType_IncompleteArray ||
-        current_type.kind == CXType_VariableArray )
-    {
-        current_type = clang_getElementType( current_type );
-    }
-    else if ( current_type.kind == CXType_Elaborated )
-    {
-        current_type = clang_Type_getNamedType( current_type );
-    }
-
-    if ( current_type.kind == CXType_Pointer )
-    {
-        const CXType next_type = clang_getPointeeType( current_type );
-        if ( next_type.kind != CXType_Invalid )
-            return get_type_name( next_type, pointer_level + 1 );
-    }
-
-    const CXCursor decl_cursor = clang_getTypeDeclaration( current_type );
-    if ( clang_Cursor_isAnonymous( decl_cursor ) )
-        return std::nullopt;
-
-    const auto out_spelling = try_get_anon_name( current_type );
-    if ( !out_spelling )
-    {
-        const auto spelling = clang_getTypeSpelling( current_type );
-        std::string result = std::string( clang_getCString( spelling ) ) +
-            std::string(
-                pointer_level, '*' );
-
-        clang_disposeString( spelling );
-        return result;
-    }
-
-    return std::string( out_spelling ) + std::string( pointer_level, '*' );
-};
-
 inline std::pair<std::vector<size_t>, CXType> get_array_dimensions( CXType type )
 {
     std::vector<size_t> dimensions;

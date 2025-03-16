@@ -34,6 +34,10 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
 
             lower_type = clang_getPointeeType( lower_type );
         }
+        else if ( lower_type.kind == CXType_Elaborated)
+        {
+            lower_type = clang_Type_getNamedType(type);
+        }
         else
         {
             // we reached the base type, verify that it exists
@@ -230,16 +234,18 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                                 } );
                         }
                     },
-                    [&] ( auto&& ) { },
+                    [&] ( auto&& )
+                    {
+                    },
                 }, client_data->type_db.lookup_type( client_data->clang_db.get_type_id( parent_type ) ) );
             break;
         }
     case CXCursor_TypedefDecl:
         {
-            CXType underlying_type = clang_getTypedefDeclUnderlyingType( cursor );
-            if ( client_data->clang_db.is_type_defined( underlying_type ) ) // skip repeating typedefs
+            if ( client_data->clang_db.is_type_defined( clang_getCursorType( cursor ) ) ) // skip repeating typedefs
                 return CXChildVisit_Recurse;
 
+            CXType underlying_type = clang_getTypedefDeclUnderlyingType( cursor );
             switch ( underlying_type.kind )
             {
             case CXType_FunctionProto:
@@ -312,6 +318,7 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
         "-ast-dump",
         "-fsyntax-only",
         "-fms-extensions",
+        "-target x86_64-windows-msvc"
     };
 
     std::vector<const char*> c_args;

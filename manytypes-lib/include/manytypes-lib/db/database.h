@@ -85,6 +85,21 @@ public:
         return type_info.at( id );
     }
 
+    type_id lookup_type_name( const char* name )
+    {
+        // todo remove this assert because this should be allowed to fail
+        assert( used_names.contains( name ), "name must be a used type name" );
+
+        for ( auto& [ id, data ] : type_info )
+        {
+            auto found_name = name_of( data );
+            if (found_name == name)
+                return id;
+        }
+
+        return 0;
+    }
+
     bool contains_type( const type_id id )
     {
         return type_info.contains( id );

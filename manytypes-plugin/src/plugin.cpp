@@ -1,86 +1,116 @@
 #include "plugin.h"
 
-// Examples: https://github.com/x64dbg/x64dbg/wiki/Plugins
-// References:
-// - https://help.x64dbg.com/en/latest/developers/plugins/index.html
-// - https://x64dbg.com/blog/2016/10/04/architecture-of-x64dbg.html
-// - https://x64dbg.com/blog/2016/10/20/threading-model.html
-// - https://x64dbg.com/blog/2016/07/30/x64dbg-plugin-sdk.html
+#include <filesystem>
+#include <string>
 
-// Command use the same signature as main in C
-// argv[0] contains the full command, after that are the arguments
-// NOTE: arguments are separated by a COMMA (not space like WinDbg)
-static bool cbExampleCommand(int argc, char** argv)
+#include "manytypes-lib/manytypes.h"
+
+std::atomic<const char*> curr_image_name;
+std::unordered_map<std::string, std::filesystem::file_time_type> last_save_time;
+
+void plugin_run_loop( )
 {
-    if (argc < 3)
-    {
-        dputs("Usage: " PLUGIN_NAME "expr1, expr2");
+    const char* curr_image = curr_image_name;
+    if ( curr_image == nullptr )
+        return;
 
-        // Return false to indicate failure (used for scripting)
-        return false;
+    std::string norm_image_name = curr_image;
+    std::ranges::replace( norm_image_name, ' ', '-' );
+
+    const auto run_root = std::filesystem::current_path( );
+
+    const auto manytypes_root = run_root / "ManyTypes";
+    const auto dbg_workspace = manytypes_root / norm_image_name;
+
+    const auto dbg_workspace_root = dbg_workspace / "project.h";
+    create_directories( dbg_workspace_root );
+
+    bool must_refresh = false;
+    for ( auto& dir_item : std::filesystem::directory_iterator( dbg_workspace ) )
+    {
+        if ( dir_item.is_regular_file( ) )
+        {
+            const auto& file = dir_item.path( );
+            if ( file.extension( ) != ".h" && file.extension( ) != ".hpp" )
+                continue;
+
+            auto last_write = last_write_time( file );
+            if ( last_save_time[ file.filename( ).string( ) ] != last_write )
+                must_refresh = true;
+
+            last_save_time[ file.filename( ).string( ) ] = last_write;
+        }
     }
 
-    // Helper function for parsing expressions
-    // Reference: https://help.x64dbg.com/en/latest/introduction/Expressions.html
-    auto parseExpr = [](const char* expression, duint& value)
+    if ( must_refresh )
     {
-        bool success = false;
-        value = DbgEval(expression, &success);
-        if (!success)
-            dprintf("Invalid expression '%s'\n", expression);
-        return success;
-    };
+        // we must run clang parser and update x64dbg types
+        const std::filesystem::path global = manytypes_root / "global.h";
+        if ( !exists( global ) ) // global header must exist
+            create_directory( global );
 
-    duint a = 0;
-    if (!parseExpr(argv[1], a))
-        return false;
+        // hidden source file
+        const std::filesystem::path src_root = manytypes_root / "source.cpp";
+        if ( !exists( src_root ) )
+        {
+            create_directory( src_root );
+            SetFileAttributesA( src_root.string( ).c_str( ), FILE_ATTRIBUTE_HIDDEN );
+        }
 
-    duint b = 0;
-    if (!parseExpr(argv[2], b))
-        return false;
+        // write dummy include
+        bool abort_parse = false;
+        {
+            std::fstream src_file( src_root, std::ios::trunc );
+            if ( src_file )
+            {
+                src_file << "#include \"global.h\"\n";
+                src_file << "#include \"" << norm_image_name << "/project.h\"";
+            }
+            else abort_parse = true;
+        }
 
-    // NOTE: Look at x64dbg-sdk/pluginsdk/bridgemain.h for a list of available functions.
-    // The Script:: namespace and DbgFunctions()->... are also good to check out.
+        if ( !abort_parse )
+        {
+            auto opt_db = parse_root_source( src_root );
+            if ( opt_db )
+            {
+                auto& db = *opt_db;
+                db.
+            }
+            else
+            {
+                dprintf( "unable to parse source tree" );
+            }
+        }
+        else
+            dprintf( "aborting header parse, unable to write to source" );
+    }
+}
 
-    // Do something meaningful with the arguments
-    duint result = a + b;
-    dprintf("$result = 0x%p + 0x%p = 0x%p\n", a, b, result);
-
-    // The $result variable can be used for scripts
-    DbgValToString("$result", result);
-
-    return true;
+void set_workspace_target( const char* image_name )
+{
+    curr_image_name = image_name;
 }
 
 // Initialize your plugin data here.
-bool pluginInit(PLUG_INITSTRUCT* initStruct)
+bool plugin_init( PLUG_INITSTRUCT* initStruct )
 {
-    dprintf("pluginInit(pluginHandle: %d)\n", pluginHandle);
+    dprintf( "plugin_init(pluginHandle: %d)\n", pluginHandle );
 
-    // Prefix of the functions to call here: _plugin_register
-    _plugin_registercommand(pluginHandle, PLUGIN_NAME, cbExampleCommand, true);
+    // Register the example command
+    _plugin_registercommand( pluginHandle, PLUGIN_NAME, cbExampleCommand, true );
 
-    // Return false to cancel loading the plugin.
     return true;
 }
 
 // Deinitialize your plugin data here.
-// NOTE: you are responsible for gracefully closing your GUI
-// This function is not executed on the GUI thread, so you might need
-// to use WaitForSingleObject or similar to wait for everything to close.
-void pluginStop()
+void plugin_stop( )
 {
-    // Prefix of the functions to call here: _plugin_unregister
-
-    dprintf("pluginStop(pluginHandle: %d)\n", pluginHandle);
+    dprintf( "plugin_stop(pluginHandle: %d)\n", pluginHandle );
 }
 
 // Do GUI/Menu related things here.
-// This code runs on the GUI thread: GetCurrentThreadId() == GuiGetMainThreadId()
-// You can get the HWND using GuiGetWindowHandle()
-void pluginSetup()
+void plugin_setup( )
 {
-    // Prefix of the functions to call here: _plugin_menu
-
-    dprintf("pluginSetup(pluginHandle: %d)\n", pluginHandle);
+    dprintf( "plugin_setup(pluginHandle: %d)\n", pluginHandle );
 }

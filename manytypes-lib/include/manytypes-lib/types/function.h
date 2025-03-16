@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "models/field.h"
-#include "manytypes-lib/struct/models/named_sized.h"
+#include "manytypes-lib/types/models/named_sized.h"
 
 enum class call_conv
 {
@@ -32,7 +32,7 @@ public:
         return name;
     }
 
-    size_t size_of( ) override
+    size_t size_of( type_size_resolver& tr ) override
     {
         return 0;
     }

@@ -27,6 +27,12 @@ struct cx_type_equal
     }
 };
 
+enum spelling_settings
+{
+    UNQUALIFIED = 1,
+
+};
+
 template < typename... Args >
 class clang_spelling_str
 {

@@ -1,9 +1,6 @@
 #include "pluginmain.h"
 #include "plugin.h"
 
-// NOTE: This is mostly just boilerplate code, generally you work in plugin.cpp
-// Reference: https://help.x64dbg.com/en/latest/developers/plugins/basics.html#exports
-
 int pluginHandle;
 HWND hwndDlg;
 int hMenu;
@@ -14,22 +11,23 @@ int hMenuGraph;
 int hMenuMemmap;
 int hMenuSymmod;
 
-PLUG_EXPORT bool pluginit(PLUG_INITSTRUCT* initStruct)
+PLUG_EXPORT bool pluginit( PLUG_INITSTRUCT* initStruct )
 {
     initStruct->pluginVersion = PLUGIN_VERSION;
     initStruct->sdkVersion = PLUG_SDKVERSION;
-    strncpy_s(initStruct->pluginName, PLUGIN_NAME, _TRUNCATE);
+    strncpy_s( initStruct->pluginName, PLUGIN_NAME, _TRUNCATE );
     pluginHandle = initStruct->pluginHandle;
-    return pluginInit(initStruct);
+
+    return plugin_init( initStruct );
 }
 
-PLUG_EXPORT bool plugstop()
+PLUG_EXPORT bool plugstop( )
 {
-    pluginStop();
+    plugin_stop( );
     return true;
 }
 
-PLUG_EXPORT void plugsetup(PLUG_SETUPSTRUCT* setupStruct)
+PLUG_EXPORT void plugsetup( PLUG_SETUPSTRUCT* setupStruct )
 {
     hwndDlg = setupStruct->hwndDlg;
     hMenu = setupStruct->hMenu;
@@ -39,5 +37,21 @@ PLUG_EXPORT void plugsetup(PLUG_SETUPSTRUCT* setupStruct)
     hMenuGraph = setupStruct->hMenuGraph;
     hMenuMemmap = setupStruct->hMenuMemmap;
     hMenuSymmod = setupStruct->hMenuSymmod;
-    pluginSetup();
+
+    plugin_setup( );
+}
+
+extern "C" __declspec(dllexport) void CBWINEVENT( CBTYPE bType, PLUG_CB_WINEVENT* info )
+{
+    plugin_run_loop( );
+}
+
+extern "C" __declspec(dllexport) void CBINITDEBUG( CBTYPE bType, PLUG_CB_INITDEBUG* callbackInfo )
+{
+    set_workspace_target( callbackInfo->szFileName );
+}
+
+extern "C" __declspec(dllexport) void CBSTOPDEBUG( CBTYPE bType, PLUG_CB_STOPDEBUG* callbackInfo )
+{
+    set_workspace_target( nullptr );
 }

@@ -28,7 +28,7 @@ type = "executable"
 sources = ["manytypes-sandbox/**"]
 headers = ["manytypes-sandbox/**"]
 compile-features = ["cxx_std_23"]
-link-libraries = ["manytypes"]
+link-libraries = ["::manytypes-lib"]
 
 [template.plugin]
 type = "shared"
@@ -38,4 +38,5 @@ add-function = "x64dbg_plugin"
 type = "plugin"
 sources = ["manytypes-plugin/**"]
 headers = ["manytypes-plugin/**"]
-link-libraries = ["manytypes"]
+link-libraries = ["::manytypes-lib"]
+compile-features = ["cxx_std_23"]

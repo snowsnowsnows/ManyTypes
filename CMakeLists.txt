@@ -63,17 +63,15 @@ set(manytypes-lib_SOURCES
 	"manytypes-lib/include/manytypes-lib/db/clang-database.h"
 	"manytypes-lib/include/manytypes-lib/db/database.h"
 	"manytypes-lib/include/manytypes-lib/manytypes.h"
-	"manytypes-lib/include/manytypes-lib/struct/alias.h"
-	"manytypes-lib/include/manytypes-lib/struct/array.h"
-	"manytypes-lib/include/manytypes-lib/struct/base.h"
-	"manytypes-lib/include/manytypes-lib/struct/enum.h"
-	"manytypes-lib/include/manytypes-lib/struct/function.h"
-	"manytypes-lib/include/manytypes-lib/struct/models/field.h"
-	"manytypes-lib/include/manytypes-lib/struct/models/named_sized.h"
-	"manytypes-lib/include/manytypes-lib/struct/structure.h"
+	"manytypes-lib/include/manytypes-lib/types/alias.h"
+	"manytypes-lib/include/manytypes-lib/types/basic.h"
+	"manytypes-lib/include/manytypes-lib/types/enum.h"
+	"manytypes-lib/include/manytypes-lib/types/function.h"
+	"manytypes-lib/include/manytypes-lib/types/models/field.h"
+	"manytypes-lib/include/manytypes-lib/types/models/named_sized.h"
+	"manytypes-lib/include/manytypes-lib/types/structure.h"
 	"manytypes-lib/include/manytypes-lib/util/clang-context.h"
 	"manytypes-lib/include/manytypes-lib/util/clang-utils.h"
-	"manytypes-lib/src/main.cpp"
 	"manytypes-lib/src/manytypes.cpp"
 	"manytypes-lib/src/struct/structure.cpp"
 )
@@ -114,8 +112,12 @@ target_compile_features(manytypes-sandbox PRIVATE
 	cxx_std_23
 )
 
+if(NOT TARGET manytypes-lib)
+	message(FATAL_ERROR "Target \"manytypes-lib\" referenced by \"manytypes-sandbox\" does not exist!")
+endif()
+
 target_link_libraries(manytypes-sandbox PRIVATE
-	manytypes
+	manytypes-lib
 )
 
 get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
@@ -139,6 +141,14 @@ x64dbg_plugin(manytypes-plugin)
 target_sources(manytypes-plugin PRIVATE ${manytypes-plugin_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${manytypes-plugin_SOURCES})
 
+target_compile_features(manytypes-plugin PUBLIC
+	cxx_std_23
+)
+
+if(NOT TARGET manytypes-lib)
+	message(FATAL_ERROR "Target \"manytypes-lib\" referenced by \"manytypes-plugin\" does not exist!")
+endif()
+
 target_link_libraries(manytypes-plugin PUBLIC
-	manytypes
+	manytypes-lib
 )

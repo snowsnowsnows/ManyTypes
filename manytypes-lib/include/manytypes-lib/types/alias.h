@@ -1,5 +1,5 @@
 #pragma once
-#include "manytypes-lib/struct/models/named_sized.h"
+#include "manytypes-lib/types/models/named_sized.h"
 
 class alias_type_t final : public named_sized_type_t
 {
@@ -14,10 +14,9 @@ public:
         return alias;
     }
 
-    size_t size_of( ) override
+    size_t size_of( type_size_resolver& tr ) override
     {
-        assert( true, "unable to look up size of alias for type" );
-        return 0;
+        return tr( type );
     }
 
     std::string alias;

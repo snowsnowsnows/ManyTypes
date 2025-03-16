@@ -5,18 +5,17 @@
 #include <unordered_set>
 #include <variant>
 
-#include "struct/alias.h"
-#include "struct/base.h"
-#include "struct/array.h"
-#include "struct/enum.h"
-#include "struct/function.h"
-#include "struct/structure.h"
+#include "manytypes-lib/types/alias.h"
+#include "manytypes-lib/types/basic.h"
+#include "manytypes-lib/types/enum.h"
+#include "manytypes-lib/types/function.h"
+#include "manytypes-lib/types/structure.h"
+
+using base_type_t = std::variant<function_t, array_t, pointer_t, basic_type_t>;
 
 using type_id_data = std::variant<
     structure_t, enum_t,
-    function_t, array_t, pointer_t,
     alias_type_t,
-
     base_type_t
 >;
 
@@ -27,7 +26,7 @@ public:
     {
         curr_type_id = 0;
 
-        constexpr base_type_t types[ ] = {
+        constexpr basic_type_t types[ ] = {
             { "bool", sizeof( bool ) * 8 },
             { "char", sizeof( char ) * 8 },
             { "unsigned char", sizeof( unsigned char ) * 8 },
@@ -73,6 +72,13 @@ public:
         return curr_type_id++;
     }
 
+    void update_type( const type_id id, const type_id_data& data )
+    {
+        assert( type_info.contains( id ), "type with current id must exist" );
+
+        type_info[ id ] = data;
+    }
+
     type_id_data lookup_type( const type_id id )
     {
         assert( type_info.contains(id), "type info must contain id" );
@@ -82,6 +88,11 @@ public:
     bool contains_type( const type_id id )
     {
         return type_info.contains( id );
+    }
+
+    const std::unordered_map<type_id, type_id_data>& get_types( ) const
+    {
+        return type_info;
     }
 
 private:

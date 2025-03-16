@@ -4,8 +4,13 @@
 
 struct clang_context_t
 {
-    type_database_t type_db{ };
-    clang_database_t clang_db{ type_db };
+    clang_context_t( )
+        : type_db( { } ), clang_db( type_db ), failed( false )
+    {
+    }
 
-    bool failed = false;
+    type_database_t type_db;
+    clang_database_t clang_db;
+
+    bool failed;
 };

@@ -1,5 +1,8 @@
 #include "manytypes-lib/manytypes.h"
 
+#include <functional>
+#include <ranges>
+
 #define ALIGN_UP(value, alignment) (((value) + (alignment) - 1) & ~((alignment) - 1))
 
 template < class... Ts >
@@ -70,6 +73,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
 
             uint32_t decl_type_size = decl_type_byte_size * 8;
             uint32_t decl_type_align = decl_type_byte_align * 8;
+
             structure_t sm{
                 structure_settings{
                     .align = decl_type_align,
@@ -80,8 +84,29 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                 true
             };
 
-            auto decl_type_id = client_data->type_db.insert_type( sm );
-            client_data->clang_db.save_type_id( clang_getCursorType( cursor ), decl_type_id );
+            type_id decl_type_id;
+            if ( client_data->clang_db.is_type_defined( cursor_type ) )
+            {
+                // type already has been declared,
+                decl_type_id = client_data->clang_db.get_type_id( cursor_type );
+                auto prev_decl = std::get<structure_t>( client_data->type_db.lookup_type( decl_type_id ) );
+
+                // todo this is terrible design. this should be fixed
+                type_size_resolver resolver = [] ( type_id id ) { return static_cast<uint32_t>(0); };
+                auto prev_size = prev_decl.size_of( resolver );
+                auto prev_fields_count = prev_decl.get_fields( ).size( );
+
+                // todo if current size warning for redefinition
+                if ( prev_size != 0 && !prev_fields_count )
+                    return CXChildVisit_Continue; // skip
+
+                client_data->type_db.update_type( decl_type_id, sm );
+            }
+            else
+            {
+                decl_type_id = client_data->type_db.insert_type( sm );
+                client_data->clang_db.save_type_id( cursor_type, decl_type_id );
+            }
 
             const auto parent_cursor = clang_getCursorSemanticParent( cursor );
             if ( cursor_kind == CXCursor_UnionDecl && !clang_Cursor_isNull( parent_cursor ) &&
@@ -126,7 +151,9 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         }
     case CXCursor_EnumDecl:
         {
-            enum_t em{ client_data->clang_db.get_create_type_id( clang_getEnumDeclIntegerType( cursor ) ) };
+            const auto type_name = clang_spelling_str( cursor );
+
+            enum_t em{ type_name, client_data->clang_db.get_create_type_id( clang_getEnumDeclIntegerType( cursor ) ) };
             client_data->clang_db.save_type_id( clang_getCursorType( cursor ), client_data->type_db.insert_type( em ) );
 
             break;
@@ -271,19 +298,10 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
     return CXChildVisit_Recurse;
 }
 
-std::optional<type_database_t> parse_header( std::filesystem::path& header_path )
+std::optional<type_database_t> parse_root_source( const std::filesystem::path& src_path )
 {
-    const std::filesystem::path current_path = std::filesystem::current_path( );
-    const std::filesystem::path stub_source = current_path / "stub_include.cpp";
-
-    std::ofstream include_stub( stub_source, std::ios::out | std::ios::trunc );
-    include_stub << header_data;
-
-    include_stub.close( );
-
     const std::vector<std::string> clang_args =
     {
-        // "-I" + std::string(argv[1]),
         "-x",
         "c++",
         "-fms-extensions",
@@ -302,7 +320,7 @@ std::optional<type_database_t> parse_header( std::filesystem::path& header_path 
         CXTranslationUnit tu = nullptr;
         const auto error = clang_parseTranslationUnit2(
             index,
-            stub_source.string( ).c_str( ),
+            src_path.string( ).c_str( ),
             c_args.data( ),
             static_cast<int>(c_args.size( )),
             nullptr,
@@ -315,17 +333,12 @@ std::optional<type_database_t> parse_header( std::filesystem::path& header_path 
 
         if ( error == CXError_Success )
         {
-            clang_context_t ctx{
-                .clang_db = { },
-                .type_db = { },
-                .failed = false
-            };
+            clang_context_t ctx = { };
 
             const CXCursor cursor = clang_getTranslationUnitCursor( tu );
-            clang_visitChildren( cursor, visit_cursor, static_cast<CXClientData>(&ctx) );
+            clang_visitChildren( cursor, visit_cursor, &ctx );
 
-            if ( !ctx.failed )
-                return ctx.type_db;
+            if ( !ctx.failed ) return ctx.type_db;
         }
         else printf( "CXError: %d\n", error );
 
@@ -333,4 +346,46 @@ std::optional<type_database_t> parse_header( std::filesystem::path& header_path 
     }
 
     return std::nullopt;
+}
+
+std::vector<type_id> order_database_nodes( const type_database_t& db )
+{
+    auto& types = db.get_types( );
+
+    std::unordered_set<type_id> visited;
+    std::unordered_set<type_id> rec_stack;
+    std::vector<type_id> sorted;
+
+    std::function<void( type_id )> dfs_type;
+    dfs_type = [&] ( const type_id id )
+    {
+        if ( rec_stack.contains( id ) )
+            throw std::runtime_error( "Cycle detected in type dependencies" );
+
+        if ( visited.contains( id ) )
+            return;
+
+        visited.insert( id );
+        rec_stack.insert( id );
+
+        const auto it = types.find( id );
+        if ( it != types.end( ) )
+        {
+            for ( auto dep : getDependencies( it->second ) )
+            {
+                dfs_type( dep );
+            }
+        }
+
+        rec_stack.erase( id );
+        sorted.push_back( id );
+    };
+
+    for ( const auto& id : types | std::views::keys )
+    {
+        if ( !visited.contains( id ) )
+            dfs_type( id );
+    }
+
+    return sorted;
 }

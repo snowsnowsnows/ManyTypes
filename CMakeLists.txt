@@ -73,7 +73,7 @@ set(manytypes-lib_SOURCES
 	"manytypes-lib/include/manytypes-lib/util/clang-context.h"
 	"manytypes-lib/include/manytypes-lib/util/clang-utils.h"
 	"manytypes-lib/src/manytypes.cpp"
-	"manytypes-lib/src/struct/structure.cpp"
+	"manytypes-lib/src/types/structure.cpp"
 )
 
 add_library(manytypes-lib)

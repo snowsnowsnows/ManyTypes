@@ -15,8 +15,10 @@ using base_type_t = std::variant<function_t, array_t, pointer_t, basic_type_t>;
 
 using type_id_data = std::variant<
     structure_t, enum_t,
-    alias_type_t,
-    function_t, array_t, pointer_t, basic_type_t
+    alias_type_t, alias_forwarder_t,
+    function_t, array_t, pointer_t, basic_type_t,
+
+    std::monostate
 >;
 
 class type_database_t

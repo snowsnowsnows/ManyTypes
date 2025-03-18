@@ -22,3 +22,25 @@ public:
     std::string alias;
     type_id type;
 };
+
+
+class alias_forwarder_t final : public named_sized_type_t
+{
+public:
+    explicit alias_forwarder_t( const type_id type )
+        : type( type )
+    {
+    }
+
+    std::string name_of( ) const override
+    {
+        return "";
+    }
+
+    size_t size_of( type_size_resolver& tr ) const override
+    {
+        return tr( type );
+    }
+
+    type_id type;
+};

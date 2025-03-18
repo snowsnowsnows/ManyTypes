@@ -36,7 +36,11 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
         }
         else if ( lower_type.kind == CXType_Elaborated )
         {
-            lower_type = clang_Type_getNamedType( type );
+            const auto forward_type_id = client_data->type_db.insert_type( std::monostate{} );
+            client_data->clang_db.save_type_id( clang_Type_getNamedType( type ), forward_type_id );
+
+            alias_forwarder_t alias( forward_type_id );
+            client_data->type_db.insert_type( alias );
         }
         else
         {
@@ -92,19 +96,26 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         {
             // type already has been declared,
             decl_type_id = client_data->clang_db.get_type_id( cursor_type );
-            auto prev_decl = std::get<structure_t>( client_data->type_db.lookup_type( decl_type_id ) );
 
-            // todo this is terrible design. this should be fixed
-            type_size_resolver resolver = []( type_id id )
+            auto type_info = client_data->type_db.lookup_type( decl_type_id );
+            if ( !std::holds_alternative<std::monostate>( type_info ) )
             {
-                return static_cast<size_t>( 0 );
-            };
-            auto prev_size = prev_decl.size_of( resolver );
-            auto prev_fields_count = prev_decl.get_fields().size();
+                auto prev_decl = std::get<structure_t>( type_info );
 
-            // todo if current size warning for redefinition
-            if ( prev_size != 0 && !prev_fields_count )
-                return CXChildVisit_Continue; // skip
+                // todo this is terrible design. this should be fixed
+                type_size_resolver resolver = []( type_id id )
+                {
+                    assert( true, "resolver should not be invoked" );
+                    return static_cast<size_t>( 0 );
+                };
+
+                auto prev_size = prev_decl.size_of( resolver );
+                auto prev_fields_count = prev_decl.get_fields().size();
+
+                // todo if current size warning for redefinition
+                if ( prev_size != 0 && !prev_fields_count )
+                    return CXChildVisit_Continue; // skip
+            }
 
             client_data->type_db.update_type( decl_type_id, sm );
         }
@@ -211,6 +222,9 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
 
                     bool revised_field = false;
 
+                    // this is a weird solution
+                    // its intended to allow anonymous unions to exist and this will rename them if they are actually
+                    // associated with a explicit field. i dont think theres any other way to tell
                     auto fields = s.get_fields();
                     if ( !fields.empty() )
                     {
@@ -237,8 +251,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                 [&]( auto&& )
                 {
                 },
-            },
-            client_data->type_db.lookup_type( client_data->clang_db.get_type_id( parent_type ) ) );
+            }, client_data->type_db.lookup_type( client_data->clang_db.get_type_id( parent_type ) ) );
         break;
     }
     case CXCursor_TypedefDecl:

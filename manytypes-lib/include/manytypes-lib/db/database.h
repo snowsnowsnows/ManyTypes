@@ -18,99 +18,27 @@ using type_id_data = std::variant<
     alias_type_t, alias_forwarder_t,
     function_t, array_t, pointer_t, basic_type_t,
 
-    std::monostate
+    null_type_t
 >;
 
 class type_database_t
 {
 public:
-    type_database_t( )
-    {
-        curr_type_id = 0;
+    type_database_t( );
 
-        basic_type_t types[ ] = {
-            { "bool", sizeof( bool ) * 8 },
-            { "char", sizeof( char ) * 8 },
-            { "unsigned char", sizeof( unsigned char ) * 8 },
-            { "signed char", sizeof( signed char ) * 8 },
-            { "wchar_t", sizeof( wchar_t ) * 8 },
-            { "short", sizeof( short ) * 8 },
-            { "unsigned short", sizeof( unsigned short ) * 8 },
-            { "int", sizeof( int ) * 8 },
-            { "unsigned int", sizeof( unsigned int ) * 8 },
-            { "long", sizeof( long ) * 8 },
-            { "unsigned long", sizeof( unsigned long ) * 8 },
-            { "long long", sizeof( long long ) * 8 },
-            { "unsigned long long", sizeof( unsigned long long ) * 8 },
-            { "float", sizeof( float ) * 8 },
-            { "double", sizeof( double ) * 8 },
-            { "long double", sizeof( long double ) * 8 },
-            { "void", 0 }
-        };
+    size_t size_of( type_id id ) const;
+    std::string name_of( type_id id ) const;
 
-        for ( auto& t : types )
-            insert_type( t );
-    }
+    type_id insert_type( const type_id_data& data );
+    type_id insert_placeholder_type( const null_type_t& data );
 
-    size_t size_of( const type_id id )
-    {
-        assert( type_info.contains(id), "type id is not present in type database" );
-        //return size_of( type_info[ id ] );
-        return 0;
-    }
+    void update_type( type_id id, const type_id_data& data );
 
-    std::string name_of( const type_id id )
-    {
-        assert( type_info.contains(id), "type id is not present in type database" );
-        return name_of( type_info.at( id ) );
-    }
+    type_id_data lookup_type( type_id id );
+    type_id lookup_type_name( const char* name );
 
-    type_id insert_type( const type_id_data& data )
-    {
-        assert( !used_names.contains( name_of(data) ), "type with current name exists" );
-
-        type_info.insert( { curr_type_id, data } );
-        used_names.insert( name_of( curr_type_id ) );
-
-        return curr_type_id++;
-    }
-
-    void update_type( const type_id id, const type_id_data& data )
-    {
-        assert( type_info.contains( id ), "type with current id must exist" );
-        type_info.at( id ) = data;
-    }
-
-    type_id_data lookup_type( const type_id id )
-    {
-        assert( type_info.contains(id), "type info must contain id" );
-        return type_info.at( id );
-    }
-
-    type_id lookup_type_name( const char* name )
-    {
-        // todo remove this assert because this should be allowed to fail
-        assert( used_names.contains( name ), "name must be a used type name" );
-
-        for ( auto& [ id, data ] : type_info )
-        {
-            auto found_name = name_of( data );
-            if (found_name == name)
-                return id;
-        }
-
-        return 0;
-    }
-
-    bool contains_type( const type_id id )
-    {
-        return type_info.contains( id );
-    }
-
-    const std::unordered_map<type_id, type_id_data>& get_types( ) const
-    {
-        return type_info;
-    }
+    bool contains_type( type_id id ) const;
+    const std::unordered_map<type_id, type_id_data>& get_types( ) const;
 
 private:
     std::unordered_set<std::string> used_names;
@@ -139,6 +67,7 @@ private:
             [] ( const auto& obj )
             {
                 return obj.name_of( );
-            }, id );
+            },
+            id );
     }
 };

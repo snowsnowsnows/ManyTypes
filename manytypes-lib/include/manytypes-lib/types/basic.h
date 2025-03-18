@@ -4,11 +4,31 @@
 
 #include "manytypes-lib/types/models/named_sized.h"
 
+class null_type_t final : public named_sized_type_t
+{
+public:
+    null_type_t( ) = default;
+
+    std::string name_of( ) const override
+    {
+        assert( "attempted to retrieve name of for null type " );
+        return "";
+    }
+
+    size_t size_of( type_size_resolver& tr ) const override
+    {
+        assert( "attempted to retrieve size for null type" );
+        return 0;
+    }
+};
+
+
 class basic_type_t final : public named_sized_type_t
 {
 public:
-    basic_type_t( std::string  name, size_t size )
-        : name(std::move( name )), size( size )
+    basic_type_t( std::string name, size_t size )
+        : name( std::move( name ) )
+        , size( size )
     {
     }
 
@@ -31,12 +51,16 @@ class array_t final : public named_sized_type_t
 {
 public:
     explicit array_t( const type_id id, const size_t array_size )
-        : fixed_size( true ), size( array_size ), base( id )
+        : fixed_size( true )
+        , size( array_size )
+        , base( id )
     {
     }
 
     explicit array_t( const type_id id )
-        : fixed_size( true ), size( 0 ), base( id )
+        : fixed_size( true )
+        , size( 0 )
+        , base( id )
     {
     }
 

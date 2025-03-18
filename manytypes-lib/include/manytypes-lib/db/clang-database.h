@@ -8,7 +8,7 @@ public:
     explicit clang_database_t( type_database_t& type_db )
         : type_db( &type_db )
     {
-        const std::pair<CXTypeKind, const char*> type_map[ ] = {
+        const std::pair<CXTypeKind, const char*> type_map[] = {
             { CXType_Void, "void" },
             { CXType_Bool, "bool" },
             { CXType_Char_U, "unsigned char" },
@@ -29,8 +29,8 @@ public:
             { CXType_LongDouble, "long double" }
         };
 
-        for ( auto& [ cx_type, str ] : type_map )
-            base_kinds[ cx_type ] = type_db.lookup_type_name( str );
+        for ( auto& [cx_type, str] : type_map )
+            base_kinds[cx_type] = type_db.lookup_type_name( str );
     }
 
     void save_type_id( const CXType& type, const type_id id )
@@ -40,7 +40,7 @@ public:
 
     type_id get_type_id( const CXType& type ) const
     {
-        // must assert that the type exists
+        assert( type_map.contains( type ) || base_kinds.contains( type.kind ), "type must exist" );
         if ( base_kinds.contains( type.kind ) )
             return base_kinds.at( type.kind );
 

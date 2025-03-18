@@ -72,6 +72,8 @@ set(manytypes-lib_SOURCES
 	"manytypes-lib/include/manytypes-lib/types/structure.h"
 	"manytypes-lib/include/manytypes-lib/util/clang-context.h"
 	"manytypes-lib/include/manytypes-lib/util/clang-utils.h"
+	"manytypes-lib/include/manytypes-lib/util/util.h"
+	"manytypes-lib/src/db/database.cpp"
 	"manytypes-lib/src/manytypes.cpp"
 	"manytypes-lib/src/types/structure.cpp"
 )

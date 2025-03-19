@@ -1,7 +1,7 @@
 #include "manytypes-lib/db/database.h"
 #include "manytypes-lib/util/util.h"
 
-type_database_t::type_database_t( )
+type_database_t::type_database_t()
 {
     curr_type_id = 0;
 
@@ -31,36 +31,39 @@ type_database_t::type_database_t( )
 
 size_t type_database_t::size_of( const type_id id ) const
 {
-    assert( type_info.contains(id), "type id is not present in type database" );
-    //return size_of( type_info[ id ] );
+    assert( type_info.contains( id ), "type id is not present in type database" );
+    // return size_of( type_info[ id ] );
     return 0;
 }
 
 std::string type_database_t::name_of( const type_id id ) const
 {
-    assert( type_info.contains(id), "type id is not present in type database" );
+    assert( type_info.contains( id ), "type id is not present in type database" );
     return name_of( type_info.at( id ) );
 }
 
 type_id type_database_t::insert_type( const type_id_data& data )
 {
     std::visit(
-        [&] ( auto&& x )
+        [&]( auto&& x )
         {
-            using T = std::decay_t<decltype(x)>;
+            using T = std::decay_t<decltype( x )>;
             if constexpr ( !std::is_same_v<T, array_t> && !std::is_same_v<T, pointer_t> &&
                            !std::is_same_v<T, null_type_t> &&
                            !std::is_same_v<T, alias_forwarder_t> )
             {
-                // handle all other types
-                assert( !used_names.contains(name_of(x)), "type with current name exists" );
-                used_names.insert( name_of( x ) );
+                auto name = name_of( x );
+                if ( !name.empty() )
+                {
+                    // handle all other types
+                    assert( !used_names.contains( name ), "type with current name exists" );
+                    used_names.insert( name );
+                }
             }
 
             type_info.insert( { curr_type_id, x } );
         },
-        data
-        );
+        data );
 
     return curr_type_id++;
 }
@@ -79,7 +82,7 @@ void type_database_t::update_type( const type_id id, const type_id_data& data )
 
 type_id_data type_database_t::lookup_type( const type_id id )
 {
-    assert( type_info.contains(id), "type info must contain id" );
+    assert( type_info.contains( id ), "type info must contain id" );
     return type_info.at( id );
 }
 
@@ -103,7 +106,7 @@ bool type_database_t::contains_type( const type_id id ) const
     return type_info.contains( id );
 }
 
-const std::unordered_map<type_id, type_id_data>& type_database_t::get_types( ) const
+const std::unordered_map<type_id, type_id_data>& type_database_t::get_types() const
 {
     return type_info;
 }

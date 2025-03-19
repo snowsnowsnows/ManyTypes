@@ -11,9 +11,9 @@ struct cx_type_hash
 {
     std::size_t operator()( const CXType& t ) const noexcept
     {
-        const std::size_t hash1 = std::hash<int>{ }( t.kind );
-        const std::size_t hash2 = std::hash<void*>{ }( t.data[ 0 ] );
-        const std::size_t hash3 = std::hash<void*>{ }( t.data[ 1 ] );
+        const std::size_t hash1 = std::hash<int>{}( t.kind );
+        const std::size_t hash2 = std::hash<void*>{}( t.data[0] );
+        const std::size_t hash3 = std::hash<void*>{}( t.data[1] );
 
         return hash1 ^ hash2 << 1 ^ hash3 << 2;
     }
@@ -30,42 +30,50 @@ struct cx_type_equal
 enum spelling_settings
 {
     UNQUALIFIED = 1,
-
 };
 
-template < typename... Args >
+template<typename T>
 class clang_spelling_str
 {
 public:
-    explicit clang_spelling_str( Args... args )
-        : clang_string( clang_getCursorSpelling( args... ) ),
-          str_view( clang_getCString( clang_string ) )
+    explicit clang_spelling_str( T arg )
+        : inited( false )
     {
+        if ( !clang_Cursor_isAnonymous( arg ) )
+        {
+            clang_string = clang_getCursorSpelling( arg );
+            str_view = clang_getCString( clang_string );
+
+            inited = true;
+        }
     }
 
-    [[nodiscard]] std::string_view get( ) const
+    [[nodiscard]] std::string_view get() const
     {
         return str_view;
     }
 
-    explicit operator std::string_view( ) const
+    explicit operator std::string_view() const
     {
         return str_view;
     }
 
-    operator std::string( ) const
+    operator std::string() const
     {
         return std::string( str_view );
     }
 
-    ~clang_spelling_str( )
+    ~clang_spelling_str()
     {
-        clang_disposeString( clang_string );
+        if ( inited )
+            clang_disposeString( clang_string );
     }
 
 private:
     CXString clang_string;
     std::string_view str_view;
+
+    bool inited;
 };
 
 inline std::pair<std::vector<size_t>, CXType> get_array_dimensions( CXType type )
@@ -75,7 +83,7 @@ inline std::pair<std::vector<size_t>, CXType> get_array_dimensions( CXType type 
     while ( type.kind == CXType_ConstantArray )
     {
         const long long size = clang_getArraySize( type );
-        dimensions.push_back( static_cast<int>(size) );
+        dimensions.push_back( static_cast<int>( size ) );
 
         type = clang_getArrayElementType( type );
     }

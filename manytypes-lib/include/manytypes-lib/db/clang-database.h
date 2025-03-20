@@ -30,7 +30,16 @@ public:
         };
 
         for ( auto& [cx_type, str] : type_map )
-            base_kinds[cx_type] = type_db.lookup_type_name( str );
+        {
+            for ( int i = 0; i < type_db.types->size; i++ )
+            {
+                if ( type_db.types[i].name == str )
+                {
+                    base_kinds[cx_type] = i + 1;
+                    break;
+                }
+            }
+        }
     }
 
     void save_type_id( const CXType& type, const type_id id )

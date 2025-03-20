@@ -2,6 +2,7 @@
 #include "manytypes-lib/util/util.h"
 
 #include <functional>
+#include <iostream>
 #include <ranges>
 
 #define ALIGN_UP( value, alignment ) ( ( ( value ) + (alignment)-1 ) & ~( (alignment)-1 ) )
@@ -66,6 +67,26 @@ bool is_forward_declaration( const CXCursor& cursor )
         return true;
 
     return !clang_equalCursors( cursor, definition );
+}
+
+void debug_print_cursor( const CXCursor& cursor )
+{
+    const CXSourceLocation location = clang_getCursorLocation( cursor );
+
+    CXFile file;
+    unsigned line, column;
+    clang_getSpellingLocation( location, &file, &line, &column, nullptr );
+
+    if ( file )
+    {
+        CXString file_name_str = clang_getFileName( file );
+        std::string filename = clang_getCString( file_name_str );
+
+        std::cout << filename << ":" << line << ":" << column << ":" << std::endl;
+        std::cout.flush();
+
+        clang_disposeString( file_name_str );
+    }
 }
 
 CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData data )
@@ -279,8 +300,26 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
     }
     case CXCursor_TypedefDecl:
     {
-        if ( client_data->clang_db.is_type_defined( clang_getCursorType( cursor ) ) ) // skip repeating typedefs
+        auto cursor_type = clang_getCursorType( cursor );
+        if ( client_data->clang_db.is_type_defined( cursor_type ) ) // skip repeating typedefs
             return CXChildVisit_Recurse;
+
+        auto semantic_parent = clang_getCursorSemanticParent( cursor );
+        switch ( clang_getCursorKind( semantic_parent ) )
+        {
+        case CXCursor_StructDecl:
+        case CXCursor_ClassDecl:
+            printf( "Scope: Class\n" );
+            break;
+        case CXCursor_TranslationUnit:
+            printf( "Scope: Global\n" );
+            break;
+        default:
+            assert( true, "typedef contained within unsupported scope" );
+        }
+
+        auto type_name = clang_spelling_str( cursor );
+        debug_print_cursor( cursor );
 
         CXType underlying_type = clang_getTypedefDeclUnderlyingType( cursor );
         switch ( underlying_type.kind )
@@ -305,7 +344,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
             }
 
             function_t fun_proto{
-                clang_spelling_str( cursor ),
+                type_name,
                 conv,
                 client_data->clang_db.get_type_id( clang_getResultType( underlying_type ) ),
                 [&]() -> std::vector<type_id>
@@ -319,13 +358,11 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                 }()
             };
 
-            client_data->clang_db.save_type_id( clang_getCursorType( cursor ), client_data->type_db.insert_type( fun_proto ) );
+            client_data->clang_db.save_type_id( cursor_type, client_data->type_db.insert_type( fun_proto ) );
             break;
         }
         default:
         {
-            const auto type_name = clang_spelling_str( cursor );
-
             const type_id id = unwind_complex_type( client_data, underlying_type );
             if ( !client_data->clang_db.is_type_defined( underlying_type ) )
             {
@@ -339,7 +376,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                     type_name,
                     id ) );
 
-            client_data->clang_db.save_type_id( clang_getCursorType( cursor ), typedef_id );
+            client_data->clang_db.save_type_id( cursor_type, typedef_id );
             break;
         }
         }

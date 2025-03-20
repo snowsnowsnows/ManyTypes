@@ -1,6 +1,7 @@
 #pragma once
 #include "manytypes-lib/types/models/named_sized.h"
 
+// todo: combine these into one
 class alias_type_t final : public named_sized_type_t
 {
 public:
@@ -23,7 +24,7 @@ public:
     type_id type;
 };
 
-
+// todo: this is a misleading name
 class alias_forwarder_t final : public named_sized_type_t
 {
 public:

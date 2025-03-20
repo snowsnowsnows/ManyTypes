@@ -7,9 +7,9 @@
 class null_type_t final : public named_sized_type_t
 {
 public:
-    null_type_t( ) = default;
+    null_type_t() = default;
 
-    std::string name_of( ) const override
+    std::string name_of() const override
     {
         assert( "attempted to retrieve name of for null type " );
         return "";
@@ -22,17 +22,13 @@ public:
     }
 };
 
-
 class basic_type_t final : public named_sized_type_t
 {
 public:
-    basic_type_t( std::string name, size_t size )
-        : name( std::move( name ) )
-        , size( size )
-    {
-    }
+    constexpr basic_type_t( const std::string_view name, const size_t size )
+        : name( name ), size( size ) {}
 
-    std::string name_of( ) const override
+    std::string name_of() const override
     {
         return name;
     }
@@ -45,7 +41,6 @@ public:
     std::string name;
     size_t size;
 };
-
 
 class array_t final : public named_sized_type_t
 {
@@ -64,7 +59,7 @@ public:
     {
     }
 
-    std::string name_of( ) const override
+    std::string name_of() const override
     {
         return "";
     }
@@ -74,7 +69,7 @@ public:
         return fixed_size ? size * tr( base ) : sizeof( void* );
     }
 
-    type_id get_elem_type( ) const
+    type_id get_elem_type() const
     {
         return base;
     }
@@ -94,7 +89,7 @@ public:
     {
     }
 
-    std::string name_of( ) const override
+    std::string name_of() const override
     {
         return "";
     }
@@ -104,7 +99,7 @@ public:
         return sizeof( void* );
     }
 
-    type_id get_elem_type( ) const
+    type_id get_elem_type() const
     {
         return base;
     }

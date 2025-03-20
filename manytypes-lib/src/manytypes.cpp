@@ -16,28 +16,73 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
         if ( client_data->clang_db.is_type_defined( lower_type ) )
             break;
 
-        if ( lower_type.kind == CXType_ConstantArray )
+        switch ( lower_type.kind)
+        {
+        case CXType_ConstantArray:
         {
             array_t arr( true, clang_getArraySize( lower_type ) );
             client_data->clang_db.save_type_id( lower_type, client_data->type_db.insert_type( arr ) );
 
             lower_type = clang_getArrayElementType( lower_type );
+            break;
         }
-        else if ( lower_type.kind == CXType_Pointer )
+        case CXType_Pointer:
+        case CXType_LValueReference:
         {
             pointer_t ptr( clang_getArraySize( lower_type ) );
             client_data->clang_db.save_type_id( lower_type, client_data->type_db.insert_type( ptr ) );
 
             lower_type = clang_getPointeeType( lower_type );
+            break;
         }
-        else if ( lower_type.kind == CXType_Elaborated )
+        case CXType_FunctionProto:
+        {
+            call_conv conv = call_conv::unk;
+            switch ( clang_getFunctionTypeCallingConv( lower_type ) )
+            {
+            case CXCallingConv_C:
+                conv = call_conv::cc_cdecl;
+                break;
+            case CXCallingConv_X86StdCall:
+                conv = call_conv::cc_stdcall;
+                break;
+            case CXCallingConv_X86FastCall:
+                conv = call_conv::cc_fastcall;
+                break;
+            case CXCallingConv_X86ThisCall:
+                conv = call_conv::cc_thiscall;
+                break;
+            }
+
+            function_t fun_proto{
+                conv,
+                unwind_complex_type( client_data, clang_getResultType( lower_type ) ),
+                [&]( ) -> std::vector<type_id>
+                {
+                    std::vector<type_id> types;
+                    for ( auto i = 0; i < clang_getNumArgTypes( lower_type ); i++ )
+                    {
+                        auto arg_type = clang_getArgType( lower_type, i );
+                        auto unwind = unwind_complex_type( client_data, arg_type );
+
+                        types.push_back( unwind );
+                    }
+
+                    return types;
+                }( )
+            };
+
+            client_data->clang_db.save_type_id( lower_type, client_data->type_db.insert_type( fun_proto ) );
+            break;
+        }
+        case CXType_Elaborated:
         {
             type_id named_type_id;
 
             const auto named_type = clang_Type_getNamedType( type );
             if ( !client_data->clang_db.is_type_defined( named_type ) )
             {
-                named_type_id = client_data->type_db.insert_placeholder_type( null_type_t() );
+                named_type_id = client_data->type_db.insert_placeholder_type( null_type_t( ) );
                 client_data->clang_db.save_type_id( clang_Type_getNamedType( type ), named_type_id );
             }
             else
@@ -45,15 +90,15 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
 
             alias_forwarder_t alias( named_type_id );
             client_data->clang_db.save_type_id( lower_type, client_data->type_db.insert_type( alias ) );
-
             break;
         }
-        else
+        default:
         {
             // we reached the base type, verify that it exists
             assert( client_data->clang_db.is_type_defined( lower_type ), "type id must exist" );
             break;
-        };
+        }
+        }
     }
 
     return client_data->clang_db.get_type_id( type );
@@ -63,7 +108,7 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
 bool is_forward_declaration( const CXCursor& cursor )
 {
     const auto definition = clang_getCursorDefinition( cursor );
-    if ( clang_equalCursors( definition, clang_getNullCursor() ) )
+    if ( clang_equalCursors( definition, clang_getNullCursor( ) ) )
         return true;
 
     return !clang_equalCursors( cursor, definition );
@@ -83,7 +128,7 @@ void debug_print_cursor( const CXCursor& cursor )
         std::string filename = clang_getCString( file_name_str );
 
         std::cout << filename << ":" << line << ":" << column << ":" << std::endl;
-        std::cout.flush();
+        std::cout.flush( );
 
         clang_disposeString( file_name_str );
     }
@@ -91,7 +136,7 @@ void debug_print_cursor( const CXCursor& cursor )
 
 CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData data )
 {
-    clang_context_t* client_data = static_cast<clang_context_t*>( data );
+    clang_context_t* client_data = static_cast<clang_context_t*>(data);
 
     const auto cursor_kind = clang_getCursorKind( cursor );
     switch ( cursor_kind )
@@ -110,8 +155,8 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         auto decl_type_byte_size = clang_Type_getSizeOf( cursor_type );
         assert(
             decl_type_byte_size != CXTypeLayoutError_Invalid &&
-                decl_type_byte_size != CXTypeLayoutError_Incomplete &&
-                decl_type_byte_size != CXTypeLayoutError_Dependent,
+            decl_type_byte_size != CXTypeLayoutError_Incomplete &&
+            decl_type_byte_size != CXTypeLayoutError_Dependent,
             "structure is not properly sized" );
 
         auto decl_type_byte_align = clang_Type_getAlignOf( cursor_type );
@@ -142,14 +187,14 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                 auto prev_decl = std::get<structure_t>( type_info );
 
                 // todo this is terrible design. this should be fixed
-                type_size_resolver resolver = []( type_id id )
+                type_size_resolver resolver = [] ( type_id id )
                 {
                     assert( true, "resolver should not be invoked" );
-                    return static_cast<size_t>( 0 );
+                    return static_cast<size_t>(0);
                 };
 
                 auto prev_size = prev_decl.size_of( resolver );
-                auto prev_fields_count = prev_decl.get_fields().size();
+                auto prev_fields_count = prev_decl.get_fields( ).size( );
 
                 // todo if current size warning for redefinition
                 if ( prev_size != 0 && !prev_fields_count )
@@ -172,14 +217,14 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
             auto parent_type = clang_getCursorType( parent_cursor );
             std::visit(
                 overloads{
-                    [&]( structure_t& s )
+                    [&] ( structure_t& s )
                     {
-                        const auto fields = s.get_fields();
+                        const auto fields = s.get_fields( );
 
                         uint32_t target_bit_offset = 0;
-                        if ( !s.is_union() && !fields.empty() )
+                        if ( !s.is_union( ) && !fields.empty( ) )
                         {
-                            auto& back_field = fields.back();
+                            auto& back_field = fields.back( );
                             const auto prev_end_offset = back_field.bit_offset + ( back_field.bit_size + 7 ) / 8;
                             const auto union_align = clang_Type_getAlignOf( parent_type );
 
@@ -195,7 +240,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                                 .type_id = decl_type_id,
                             } );
                     },
-                    []( auto&& )
+                    [] ( auto&& )
                     {
                         assert( true, "unexpected exception occurred" );
                     } },
@@ -240,7 +285,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
     {
         const CXCursorKind parent_kind = clang_getCursorKind( parent );
         assert(
-            parent_kind == CXCursor_ClassDecl || parent_kind == CXCursor_StructDecl,
+            parent_kind == CXCursor_ClassDecl || parent_kind == CXCursor_StructDecl || parent_kind == CXCursor_UnionDecl,
             "parent is not valid structure declaration" );
 
         auto parent_type = clang_getCursorType( parent );
@@ -248,7 +293,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
 
         std::visit(
             overloads{
-                [&]( structure_t& s )
+                [&] ( structure_t& s )
                 {
                     const auto bit_width = clang_getFieldDeclBitWidth( cursor );
                     assert( bit_width != -1, "bit width must not be value dependent" );
@@ -256,9 +301,9 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                     const auto bit_offset = clang_Cursor_getOffsetOfField( cursor );
                     assert(
                         bit_offset != CXTypeLayoutError_Invalid &&
-                            bit_offset != CXTypeLayoutError_Incomplete &&
-                            bit_offset != CXTypeLayoutError_Dependent &&
-                            bit_offset != CXTypeLayoutError_InvalidFieldName,
+                        bit_offset != CXTypeLayoutError_Incomplete &&
+                        bit_offset != CXTypeLayoutError_Dependent &&
+                        bit_offset != CXTypeLayoutError_InvalidFieldName,
                         "field offset is invalid" );
 
                     const type_id field_type_id = unwind_complex_type( client_data, underlying_type );
@@ -268,10 +313,10 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                     // this is a weird solution
                     // its intended to allow anonymous unions to exist and this will rename them if they are actually
                     // associated with a explicit field. i dont think theres any other way to tell
-                    auto fields = s.get_fields();
-                    if ( !fields.empty() )
+                    auto fields = s.get_fields( );
+                    if ( !fields.empty( ) )
                     {
-                        auto& back = fields.back();
+                        auto& back = fields.back( );
                         if ( back.bit_offset == bit_offset && back.type_id == field_type_id )
                         {
                             back.name = clang_spelling_str( cursor );
@@ -283,15 +328,15 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                     {
                         s.add_field(
                             base_field_t{
-                                .bit_offset = static_cast<uint32_t>( bit_offset ),
-                                .bit_size = static_cast<uint32_t>( bit_width ),
+                                .bit_offset = static_cast<uint32_t>(bit_offset),
+                                .bit_size = static_cast<uint32_t>(bit_width),
                                 .is_bit_field = clang_Cursor_isBitField( cursor ) != 0,
                                 .name = "",
                                 .type_id = field_type_id,
                             } );
                     }
                 },
-                [&]( auto&& )
+                [&] ( auto&& )
                 {
                 },
             },
@@ -304,81 +349,41 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         if ( client_data->clang_db.is_type_defined( cursor_type ) ) // skip repeating typedefs
             return CXChildVisit_Recurse;
 
+        // todo this is a hack because the way nullptr_t is declared leads to CXType_Unexposed
+        // there may be a better and more formal way to handle this, but not now
+        auto type_name = clang_spelling_str( cursor );
+        if ( type_name.get( ) == "nullptr_t" )
+            return CXChildVisit_Recurse;
+
+        debug_print_cursor( cursor );
+        CXType underlying_type = clang_getTypedefDeclUnderlyingType( cursor );
+
+        type_id result_id = unwind_complex_type( client_data, underlying_type );
+        assert( client_data->clang_db.is_type_defined( underlying_type ), "underlying type must be defined" );
+
+        result_id = client_data->type_db.insert_type(
+            alias_type_t(
+                type_name,
+                result_id ) );
+
+        client_data->clang_db.save_type_id( cursor_type, result_id );
+        break;
+
         auto semantic_parent = clang_getCursorSemanticParent( cursor );
         switch ( clang_getCursorKind( semantic_parent ) )
         {
         case CXCursor_StructDecl:
+        case CXCursor_UnionDecl:
         case CXCursor_ClassDecl:
-            printf( "Scope: Class\n" );
+            client_data->type_db.insert_semantic_parent(
+                result_id,
+                client_data->clang_db.get_type_id( clang_getCursorType( semantic_parent ) )
+                );
             break;
         case CXCursor_TranslationUnit:
-            printf( "Scope: Global\n" );
             break;
         default:
             assert( true, "typedef contained within unsupported scope" );
-        }
-
-        auto type_name = clang_spelling_str( cursor );
-        debug_print_cursor( cursor );
-
-        CXType underlying_type = clang_getTypedefDeclUnderlyingType( cursor );
-        switch ( underlying_type.kind )
-        {
-        case CXType_FunctionProto:
-        {
-            call_conv conv = call_conv::unk;
-            switch ( clang_getFunctionTypeCallingConv( underlying_type ) )
-            {
-            case CXCallingConv_C:
-                conv = call_conv::cc_cdecl;
-                break;
-            case CXCallingConv_X86StdCall:
-                conv = call_conv::cc_stdcall;
-                break;
-            case CXCallingConv_X86FastCall:
-                conv = call_conv::cc_fastcall;
-                break;
-            case CXCallingConv_X86ThisCall:
-                conv = call_conv::cc_thiscall;
-                break;
-            }
-
-            function_t fun_proto{
-                type_name,
-                conv,
-                client_data->clang_db.get_type_id( clang_getResultType( underlying_type ) ),
-                [&]() -> std::vector<type_id>
-                {
-                    std::vector<type_id> types;
-                    for ( auto i = 0; i < clang_getNumArgTypes( underlying_type ); i++ )
-                        types.push_back(
-                            client_data->clang_db.get_type_id( clang_getArgType( underlying_type, i ) ) );
-
-                    return types;
-                }()
-            };
-
-            client_data->clang_db.save_type_id( cursor_type, client_data->type_db.insert_type( fun_proto ) );
-            break;
-        }
-        default:
-        {
-            const type_id id = unwind_complex_type( client_data, underlying_type );
-            if ( !client_data->clang_db.is_type_defined( underlying_type ) )
-            {
-                client_data->failed = true;
-                return CXChildVisit_Break;
-            }
-
-            // const auto type_name = clang_spelling_str( cursor );
-            type_id typedef_id = client_data->type_db.insert_type(
-                alias_type_t(
-                    type_name,
-                    id ) );
-
-            client_data->clang_db.save_type_id( cursor_type, typedef_id );
-            break;
-        }
         }
     }
     case CXCursor_ClassTemplate:
@@ -408,27 +413,27 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
 
     std::vector<const char*> c_args;
     for ( const auto& arg : clang_args )
-        c_args.push_back( arg.c_str() );
+        c_args.push_back( arg.c_str( ) );
 
     if ( const auto index = clang_createIndex( 0, 1 ) )
     {
         CXTranslationUnit tu = nullptr;
         const auto error = clang_parseTranslationUnit2(
             index,
-            src_path.string().c_str(),
-            c_args.data(),
-            static_cast<int>( c_args.size() ),
+            src_path.string( ).c_str( ),
+            c_args.data( ),
+            static_cast<int>(c_args.size( )),
             nullptr,
             0,
             CXTranslationUnit_DetailedPreprocessingRecord |
-                CXTranslationUnit_PrecompiledPreamble |
-                CXTranslationUnit_SkipFunctionBodies |
-                CXTranslationUnit_ForSerialization,
+            CXTranslationUnit_PrecompiledPreamble |
+            CXTranslationUnit_SkipFunctionBodies |
+            CXTranslationUnit_ForSerialization,
             &tu );
 
         if ( error == CXError_Success )
         {
-            clang_context_t ctx = {};
+            clang_context_t ctx = { };
 
             const CXCursor cursor = clang_getTranslationUnitCursor( tu );
             clang_visitChildren( cursor, visit_cursor, &ctx );
@@ -447,14 +452,14 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
 
 std::vector<type_id> order_database_nodes( const type_database_t& db )
 {
-    auto& types = db.get_types();
+    auto& types = db.get_types( );
 
     std::unordered_set<type_id> visited;
     std::unordered_set<type_id> rec_stack;
     std::vector<type_id> sorted;
 
     std::function<void( type_id )> dfs_type;
-    dfs_type = [&]( const type_id id )
+    dfs_type = [&] ( const type_id id )
     {
         if ( rec_stack.contains( id ) )
             throw std::runtime_error( "Cycle detected in type dependencies" );
@@ -466,7 +471,7 @@ std::vector<type_id> order_database_nodes( const type_database_t& db )
         rec_stack.insert( id );
 
         const auto it = types.find( id );
-        if ( it != types.end() )
+        if ( it != types.end( ) )
         {
             // for ( auto dep : getDependencies( it->second ) )
             //{

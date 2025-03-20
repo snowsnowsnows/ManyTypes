@@ -31,14 +31,19 @@ public:
 
         for ( auto& [cx_type, str] : type_map )
         {
-            for ( int i = 0; i < type_db.types->size; i++ )
+            bool found = false;
+            for ( int i = 0; i < type_database_t::types.size( ) && !found; i++ )
             {
-                if ( type_db.types[i].name == str )
+                if ( type_database_t::types[i].name == str )
                 {
                     base_kinds[cx_type] = i + 1;
-                    break;
+                    found = true;
                 }
             }
+
+            // some error occ
+            if ( !found )
+                __debugbreak( );
         }
     }
 

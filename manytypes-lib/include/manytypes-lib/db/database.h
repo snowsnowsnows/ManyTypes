@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <variant>
+#include <array>
 
 #include "manytypes-lib/types/alias.h"
 #include "manytypes-lib/types/basic.h"
@@ -29,8 +30,9 @@ public:
     size_t size_of( type_id id ) const;
     std::string name_of( type_id id ) const;
 
-    type_id insert_type( const type_id_data& data );
-    type_id insert_placeholder_type( const null_type_t& data );
+    type_id insert_type( const type_id_data& data, type_id semantic_parent = 0 );
+    type_id insert_placeholder_type( const null_type_t& data, type_id semantic_parent = 0 );
+    void insert_semantic_parent( type_id id, type_id parent  );
 
     void update_type( type_id id, const type_id_data& data );
 
@@ -39,28 +41,11 @@ public:
     bool contains_type( type_id id ) const;
     const std::unordered_map<type_id, type_id_data>& get_types( ) const;
 
-    constexpr static basic_type_t types[] = {
-        { "bool", sizeof( bool ) * 8 },
-        { "char", sizeof( char ) * 8 },
-        { "unsigned char", sizeof( unsigned char ) * 8 },
-        { "signed char", sizeof( signed char ) * 8 },
-        { "wchar_t", sizeof( wchar_t ) * 8 },
-        { "short", sizeof( short ) * 8 },
-        { "unsigned short", sizeof( unsigned short ) * 8 },
-        { "int", sizeof( int ) * 8 },
-        { "unsigned int", sizeof( unsigned int ) * 8 },
-        { "long", sizeof( long ) * 8 },
-        { "unsigned long", sizeof( unsigned long ) * 8 },
-        { "long long", sizeof( long long ) * 8 },
-        { "unsigned long long", sizeof( unsigned long long ) * 8 },
-        { "float", sizeof( float ) * 8 },
-        { "double", sizeof( double ) * 8 },
-        { "long double", sizeof( long double ) * 8 },
-        { "void", 0 }
-    };
+    static std::array<basic_type_t, 17> types;
 
 private:
     std::unordered_map<type_id, type_id_data> type_info;
+    std::unordered_map<type_id, type_id> type_scopes;
     type_id curr_type_id;
 
     //size_t size_of( const type_id_data& id )

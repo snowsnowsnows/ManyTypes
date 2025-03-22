@@ -74,7 +74,7 @@ public:
         return base;
     }
 
-private:
+
     bool fixed_size;
 
     size_t size;
@@ -104,6 +104,5 @@ public:
         return base;
     }
 
-private:
     type_id base;
 };

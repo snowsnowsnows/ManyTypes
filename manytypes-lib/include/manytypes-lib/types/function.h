@@ -47,7 +47,6 @@ public:
         return return_type;
     }
 
-private:
     call_conv conv;
     type_id return_type;
     std::vector<type_id> args;

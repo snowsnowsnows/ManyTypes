@@ -62,6 +62,8 @@ set(manytypes-lib_SOURCES
 	cmake.toml
 	"manytypes-lib/include/manytypes-lib/db/clang-database.h"
 	"manytypes-lib/include/manytypes-lib/db/database.h"
+	"manytypes-lib/include/manytypes-lib/formatter/header.h"
+	"manytypes-lib/include/manytypes-lib/formatter/x64dbg.h"
 	"manytypes-lib/include/manytypes-lib/manytypes.h"
 	"manytypes-lib/include/manytypes-lib/types/alias.h"
 	"manytypes-lib/include/manytypes-lib/types/basic.h"
@@ -74,6 +76,7 @@ set(manytypes-lib_SOURCES
 	"manytypes-lib/include/manytypes-lib/util/clang-utils.h"
 	"manytypes-lib/include/manytypes-lib/util/util.h"
 	"manytypes-lib/src/db/database.cpp"
+	"manytypes-lib/src/formatter/header.cpp"
 	"manytypes-lib/src/manytypes.cpp"
 	"manytypes-lib/src/types/structure.cpp"
 )

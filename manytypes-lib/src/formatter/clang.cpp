@@ -39,8 +39,7 @@ std::string formatter_clang::print_database()
                 },
                 [&]( pointer_t& p )
                 {
-                    // pointer breaks any dependency chain, no types before this need
-                    // to be printed
+                    deps = p.get_dependencies();
                 },
                 [&]( auto&& )
                 {
@@ -64,7 +63,7 @@ std::string formatter_clang::print_database()
 
     std::string out;
     for ( type_id id : sorted )
-        out += print_type( id );
+        out += print_type( id ) + "\n";
 
     return out;
 }
@@ -77,7 +76,7 @@ std::string formatter_clang::print_structure( const structure_t& s )
     for ( const auto& field : s.get_fields() )
     {
         std::string identifier = field.name;
-        print_identifier( field.type_id, identifier, false );
+        print_identifier( field.type_id, identifier );
 
         if ( !field.is_bit_field )
             out += std::format( "\n\t{};", identifier );
@@ -108,7 +107,7 @@ std::string formatter_clang::print_forward_alias( const typedef_type_t& a )
     std::string out;
 
     std::string identifier = a.alias;
-    print_identifier( a.type, identifier, false );
+    print_identifier( a.type, identifier );
 
     out += std::format( "typedef {};", identifier );
 
@@ -133,33 +132,24 @@ std::string formatter_clang::print_type( const type_id id )
             },
             [&]( const auto& a ) -> std::string
             {
-                assert( false && "unknown type visited" );
+                // assert( false, "unknown type visited" );
                 return "";
             } },
         type_db.lookup_type( id ) );
 }
 
-void formatter_clang::print_identifier( const type_id& type, std::string& identifier, bool trivial_type )
+void formatter_clang::print_identifier( const type_id& type, std::string& identifier )
 {
     auto type_data = type_db.lookup_type( type );
-    if ( trivial_type )
-    {
-        assert( std::holds_alternative<typedef_type_t>( type_data ) ||
-                    std::holds_alternative<basic_type_t>( type_data ) ||
-                    std::holds_alternative<structure_t>( type_data ) ||
-                    std::holds_alternative<enum_t>( type_data ),
-            "type must be basic type" );
-    }
-
     std::visit(
         overloads{
             [&]( const elaborated_t& f )
             {
                 // add some sort of check to assert that this should be a basic type
                 std::string type_print;
-                print_identifier( f.type, type_print, true );
+                print_identifier( f.type, type_print );
 
-                identifier = f.elaborated_name + " " + type_print + identifier;
+                identifier = std::format("{} {}::{} ", f.sugar, f.scope,type_print) + identifier;
             },
 
             // base
@@ -173,23 +163,11 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
             },
             [&]( const structure_t& s )
             {
-                std::string prefix;
-                if ( !trivial_type )
-                {
-                    if ( s.is_union() )
-                        prefix = "union ";
-                    else
-                        prefix = "struct ";
-                }
-
-                identifier = prefix + s.get_name() + " " + identifier;
+                identifier = s.get_name() + " " + identifier;
             },
             [&]( const enum_t& e )
             {
-                if ( !trivial_type )
-                    identifier = "enum " + e.get_name() + " " + identifier;
-                else
-                    identifier = e.get_name() + " " + identifier;
+                identifier = e.get_name() + " " + identifier;
             },
 
             // complex types
@@ -203,7 +181,7 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
                     for ( const auto& arg : args )
                     {
                         std::string arg_format;
-                        print_identifier( arg, arg_format, false );
+                        print_identifier( arg, arg_format );
 
                         identifier += arg_format + ",";
                     }
@@ -212,12 +190,10 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
                 }
 
                 identifier += ")";
-                print_identifier( f.get_return_type(), identifier, false );
+                print_identifier( f.get_return_type(), identifier );
             },
             [&]( const pointer_t& p )
             {
-                identifier = "(*" + identifier + ")";
-
                 const auto& pointee = type_db.lookup_type( p.get_elem_type() );
                 if ( std::holds_alternative<function_t>( pointee ) ||
                      std::holds_alternative<array_t>( pointee ) )
@@ -225,7 +201,7 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
                 else
                     identifier = "*" + identifier;
 
-                print_identifier( p.get_elem_type(), identifier, false );
+                print_identifier( p.get_elem_type(), identifier );
             },
             [&]( const array_t& arr )
             {
@@ -237,9 +213,9 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
                 else
                     identifier += std::format( "[]" );
 
-                print_identifier( arr.get_elem_type(), identifier, false );
+                print_identifier( arr.get_elem_type(), identifier );
             },
-            []( const auto&& a )
+            []( const auto& a )
             {
                 assert( false, "invalid type for identifier printer found" );
             } },

@@ -21,7 +21,7 @@ std::array<basic_type_t, 17> type_database_t::types = {
     basic_type_t{ "void", 0 }
 };
 
-type_database_t::type_database_t( )
+type_database_t::type_database_t()
 {
     curr_type_id = 1;
 
@@ -31,7 +31,7 @@ type_database_t::type_database_t( )
 
 type_id type_database_t::insert_type( const type_id_data& data, type_id semantic_parent )
 {
-    assert( semantic_parent == 0 || type_scopes.contains(semantic_parent), "semantic parent must be valid type" );
+    assert( semantic_parent == 0 || type_scopes.contains( semantic_parent ), "semantic parent must be valid type" );
 
     type_info.insert( { curr_type_id, data } );
     if ( semantic_parent )
@@ -72,7 +72,7 @@ bool type_database_t::contains_type( const type_id id ) const
     return type_info.contains( id );
 }
 
-const std::unordered_map<type_id, type_id_data>& type_database_t::get_types( ) const
+const std::unordered_map<type_id, type_id_data>& type_database_t::get_types() const
 {
     return type_info;
 }

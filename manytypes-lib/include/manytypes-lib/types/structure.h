@@ -15,6 +15,7 @@ struct structure_settings
     uint32_t size;
 
     bool is_union;
+    bool is_forward;
 };
 
 class structure_t final : public dependent_t
@@ -51,6 +52,11 @@ public:
             deps.insert( field.type_id );
 
         return std::vector( deps.begin(), deps.end() );
+    }
+
+    structure_settings& get_settings()
+    {
+        return settings;
     }
 
 protected:

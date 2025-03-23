@@ -29,11 +29,12 @@ public:
 
     type_id insert_type( const type_id_data& data, type_id semantic_parent = 0 );
     type_id insert_placeholder_type( const null_type_t& data, type_id semantic_parent = 0 );
-    void insert_semantic_parent( type_id id, type_id parent  );
 
     void update_type( type_id id, const type_id_data& data );
 
     type_id_data lookup_type( type_id id );
+
+    void insert_semantic_parent( type_id id, type_id parent  );
 
     bool contains_type( type_id id ) const;
     const std::unordered_map<type_id, type_id_data>& get_types( ) const;

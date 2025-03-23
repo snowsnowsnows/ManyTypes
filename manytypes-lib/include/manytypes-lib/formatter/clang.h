@@ -29,5 +29,5 @@ private:
     type_database_t type_db;
 
     std::string print_type( type_id id );
-    void print_identifier( const type_id& type, std::string& identifier, bool trivial_type = false );
+    void print_identifier( const type_id& type, std::string& identifier );
 };

@@ -7,23 +7,76 @@
 #include <iostream>
 #include <ranges>
 
-#define ALIGN_UP( value, alignment ) ( ( ( value ) + (alignment)-1 ) & ~( (alignment)-1 ) )
+#define ALIGN_UP( value, alignment ) ( ( ( value ) + ( alignment ) - 1 ) & ~( ( alignment ) - 1 ) )
+
+type_id database_update_insert( clang_context_t* client_data, const CXType& type, const type_id_data& data )
+{
+    type_id out;
+    if ( client_data->clang_db.is_type_defined( type ) )
+    {
+        out = client_data->clang_db.get_type_id( type );
+        client_data->type_db.update_type( out, data );
+    }
+    else
+    {
+        out = client_data->type_db.insert_type( data );
+        client_data->clang_db.save_type_id( type, out );
+    }
+
+    return out;
+}
+
+// https://web.archive.org/web/20210511125654/https://joshpeterson.github.io/identifying-a-forward-declaration-with-libclang
+bool is_forward_declaration( const CXCursor& cursor )
+{
+    const auto definition = clang_getCursorDefinition( cursor );
+    if ( clang_equalCursors( definition, clang_getNullCursor() ) )
+        return true;
+
+    return !clang_equalCursors( cursor, definition );
+}
+
+void debug_print_cursor( const CXCursor& cursor )
+{
+    const CXSourceLocation location = clang_getCursorLocation( cursor );
+
+    CXFile file;
+    unsigned line, column;
+    clang_getSpellingLocation( location, &file, &line, &column, nullptr );
+
+    if ( file )
+    {
+        CXString file_name_str = clang_getFileName( file );
+        std::string filename = clang_getCString( file_name_str );
+
+        std::cout << filename << ":" << line << ":" << column << ":" << std::endl;
+        std::cout.flush();
+
+        clang_disposeString( file_name_str );
+    }
+}
 
 type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
 {
     auto lower_type = type;
-    while ( true )
+
+    bool base_type_case = false;
+    while ( !base_type_case )
     {
         // if we already have seen this type that means all the base types have been created
         if ( client_data->clang_db.is_type_defined( lower_type ) )
-            break;
+        {
+            const auto lower_type_id = client_data->clang_db.get_type_id( lower_type );
+            if ( !std::holds_alternative<null_type_t>( client_data->type_db.lookup_type( lower_type_id ) ) )
+                break;
+        }
 
         switch ( lower_type.kind )
         {
         case CXType_ConstantArray:
         {
             array_t arr( true, clang_getArraySize( lower_type ) );
-            client_data->clang_db.save_type_id( lower_type, client_data->type_db.insert_type( arr ) );
+            database_update_insert( client_data, lower_type, arr );
 
             lower_type = clang_getArrayElementType( lower_type );
             break;
@@ -31,10 +84,21 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
         case CXType_Pointer:
         case CXType_LValueReference:
         {
-            pointer_t ptr( clang_getArraySize( lower_type ) );
-            client_data->clang_db.save_type_id( lower_type, client_data->type_db.insert_type( ptr ) );
+            type_id pointee_type_id;
 
-            lower_type = clang_getPointeeType( lower_type );
+            auto pointee_type = clang_getPointeeType( lower_type );
+            if ( !client_data->clang_db.is_type_defined( pointee_type ) )
+            {
+                pointee_type_id = client_data->type_db.insert_placeholder_type( null_type_t() );
+                client_data->clang_db.save_type_id( pointee_type, pointee_type_id );
+            }
+            else
+                pointee_type_id = client_data->clang_db.get_type_id( pointee_type );
+
+            pointer_t ptr( pointee_type_id );
+            database_update_insert( client_data, lower_type, ptr );
+
+            lower_type = pointee_type;
             break;
         }
         case CXType_FunctionProto:
@@ -74,69 +138,43 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
                 }()
             };
 
-            client_data->clang_db.save_type_id( lower_type, client_data->type_db.insert_type( fun_proto ) );
+            database_update_insert( client_data, lower_type, fun_proto );
             break;
         }
         case CXType_Elaborated:
         {
             type_id named_type_id;
 
-            const auto named_type = clang_Type_getNamedType( type );
+            const auto named_type = clang_Type_getNamedType( lower_type );
             if ( !client_data->clang_db.is_type_defined( named_type ) )
             {
                 named_type_id = client_data->type_db.insert_placeholder_type( null_type_t() );
-                client_data->clang_db.save_type_id( clang_Type_getNamedType( type ), named_type_id );
+                client_data->clang_db.save_type_id( clang_Type_getNamedType( lower_type ), named_type_id );
             }
             else
                 named_type_id = client_data->clang_db.get_type_id( named_type );
 
-            auto str = get_elaborated_string( type );
-            assert( str, "must have value" );
+            // todo, we might not need the typename
+            auto [prefix, scope, type_name] = get_elaborated_string_data( lower_type );
+            elaborated_t alias( named_type_id, prefix, scope, type_name );
+            database_update_insert( client_data, lower_type, alias );
 
-            elaborated_t alias( named_type_id, *str );
-            client_data->clang_db.save_type_id( lower_type, client_data->type_db.insert_type( alias ) );
+            lower_type = named_type;
             break;
         }
         default:
         {
             // we reached the base type, verify that it exists
+            auto test = clang_spelling_str( lower_type );
             assert( client_data->clang_db.is_type_defined( lower_type ), "type id must exist" );
+            base_type_case = true;
+
             break;
         }
         }
     }
 
     return client_data->clang_db.get_type_id( type );
-}
-
-// https://web.archive.org/web/20210511125654/https://joshpeterson.github.io/identifying-a-forward-declaration-with-libclang
-bool is_forward_declaration( const CXCursor& cursor )
-{
-    const auto definition = clang_getCursorDefinition( cursor );
-    if ( clang_equalCursors( definition, clang_getNullCursor() ) )
-        return true;
-
-    return !clang_equalCursors( cursor, definition );
-}
-
-void debug_print_cursor( const CXCursor& cursor )
-{
-    const CXSourceLocation location = clang_getCursorLocation( cursor );
-
-    CXFile file;
-    unsigned line, column;
-    clang_getSpellingLocation( location, &file, &line, &column, nullptr );
-
-    if ( file )
-    {
-        CXString file_name_str = clang_getFileName( file );
-        std::string filename = clang_getCString( file_name_str );
-
-        std::cout << filename << ":" << line << ":" << column << ":" << std::endl;
-        std::cout.flush();
-
-        clang_disposeString( file_name_str );
-    }
 }
 
 CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData data )
@@ -151,21 +189,23 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
     case CXCursor_UnionDecl:
     {
         const auto cursor_type = clang_getCursorType( cursor );
-        if ( is_forward_declaration( cursor ) || client_data->clang_db.is_type_defined( cursor_type ) )
-            break;
 
         // todo: in ctor check that none of the arguments are negative other than size = -1
         std::string type_name = clang_spelling_str( cursor );
+        if ( type_name == "_TP_CLEANUP_GROUP" )
+            __debugbreak();
 
         auto decl_type_byte_size = clang_Type_getSizeOf( cursor_type );
         assert(
             decl_type_byte_size != CXTypeLayoutError_Invalid &&
-                decl_type_byte_size != CXTypeLayoutError_Incomplete &&
+                // decl_type_byte_size != CXTypeLayoutError_Incomplete && this happens for forward declared structures
                 decl_type_byte_size != CXTypeLayoutError_Dependent,
             "structure is not properly sized" );
 
+        bool is_forward = is_forward_declaration( cursor );
+
         auto decl_type_byte_align = clang_Type_getAlignOf( cursor_type );
-        assert( decl_type_byte_align > 0, "structure is not properly aligned" );
+        assert( is_forward || decl_type_byte_align > 0, "structure is not properly aligned" );
 
         uint32_t decl_type_size = decl_type_byte_size * 8;
         uint32_t decl_type_align = decl_type_byte_align * 8;
@@ -176,7 +216,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                 .align = decl_type_align,
                 .size = decl_type_size,
                 .is_union = cursor_kind == CXCursor_UnionDecl,
-            },
+                .is_forward = is_forward },
             true
         };
 
@@ -191,11 +231,11 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
             {
                 // todo revist this, im not sure this is the way of going about this
                 auto prev_decl = std::get<structure_t>( type_info );
-                auto prev_fields_count = prev_decl.get_fields().size();
 
-                // todo if current size warning for redefinition
-                if ( !prev_fields_count )
-                    return CXChildVisit_Continue; // skip
+                // todo maybe throw exception if sizes mismatch and both are not forward
+                auto settings = prev_decl.get_settings();
+                if ( !settings.is_forward || is_forward ) // if prev decl is forward and this one is not, we want to replace
+                    return CXChildVisit_Recurse; // but this is not so we can continue
             }
 
             client_data->type_db.update_type( decl_type_id, sm );

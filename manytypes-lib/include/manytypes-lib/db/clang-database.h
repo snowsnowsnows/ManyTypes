@@ -49,6 +49,8 @@ public:
 
     void save_type_id( const CXType& type, const type_id id )
     {
+        if (id == 3239)
+            __debugbreak();
         type_map.insert( { type, id } );
     }
 

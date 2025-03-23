@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <utility>
 #include <vector>
+#include <unordered_set>
 
 #include "manytypes-lib/types/models/field.h"
 #include "manytypes-lib/types/models/named_sized.h"
@@ -16,10 +17,10 @@ struct structure_settings
     bool is_union;
 };
 
-class structure_t final : public named_sized_type_t, public dependent_t
+class structure_t final : public dependent_t
 {
 public:
-    ~structure_t( ) override = default;
+    ~structure_t() override = default;
 
     explicit structure_t( structure_settings settings, const bool in_order_insertion )
         : settings( std::move( settings ) ), in_order_insert( in_order_insertion )
@@ -28,27 +29,29 @@ public:
 
     bool add_field( const base_field_t& field );
 
-    [[nodiscard]] const std::vector<base_field_t>& get_fields( ) const
+    [[nodiscard]] const std::vector<base_field_t>& get_fields() const
     {
         return s_fields;
     }
 
-    bool is_union( ) const
+    bool is_union() const
     {
         return settings.is_union;
     }
 
-    size_t size_of( type_size_resolver& tr ) const override
-    {
-        return settings.size;
-    }
-
-    std::string name_of( ) const override
+    std::string get_name() const
     {
         return settings.name;
     }
 
-    std::vector<type_id> get_dependencies( ) override;
+    std::vector<type_id> get_dependencies() override
+    {
+        std::unordered_set<type_id> deps;
+        for ( auto& field : s_fields )
+            deps.insert( field.type_id );
+
+        return std::vector( deps.begin(), deps.end() );
+    }
 
 protected:
     structure_settings settings;

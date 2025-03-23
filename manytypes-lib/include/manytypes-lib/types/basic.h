@@ -4,45 +4,34 @@
 
 #include "manytypes-lib/types/models/named_sized.h"
 
-class null_type_t final : public named_sized_type_t
+class null_type_t final : public dependent_t
 {
 public:
     null_type_t() = default;
 
-    std::string name_of() const override
+    std::vector<type_id> get_dependencies() override
     {
-        assert( "attempted to retrieve name of for null type " );
-        return "";
-    }
-
-    size_t size_of( type_size_resolver& tr ) const override
-    {
-        assert( "attempted to retrieve size for null type" );
-        return 0;
+        assert( true, "cannot retreive dependencies for null type" );
+        return {};
     }
 };
 
-class basic_type_t final : public named_sized_type_t
+class basic_type_t final : public dependent_t
 {
 public:
     constexpr basic_type_t( const std::string_view name, const size_t size )
         : name( name ), size( size ) {}
 
-    std::string name_of() const override
+    std::vector<type_id> get_dependencies() override
     {
-        return name;
-    }
-
-    size_t size_of( type_size_resolver& tr ) const override
-    {
-        return size;
+        return {};
     }
 
     std::string name;
     size_t size;
 };
 
-class array_t final : public named_sized_type_t
+class array_t final : public dependent_t
 {
 public:
     explicit array_t( const type_id id, const size_t array_size )
@@ -59,14 +48,14 @@ public:
     {
     }
 
-    std::string name_of() const override
+    bool is_fixed() const
     {
-        return "";
+        return fixed_size;
     }
 
-    size_t size_of( type_size_resolver& tr ) const override
+    size_t get_array_size() const
     {
-        return fixed_size ? size * tr( base ) : sizeof( void* );
+        return size;
     }
 
     type_id get_elem_type() const
@@ -74,14 +63,19 @@ public:
         return base;
     }
 
+    std::vector<type_id> get_dependencies() override
+    {
+        return { base };
+    }
 
+private:
     bool fixed_size;
 
     size_t size;
     type_id base;
 };
 
-class pointer_t final : public named_sized_type_t
+class pointer_t final : public dependent_t
 {
 public:
     explicit pointer_t( const type_id id )
@@ -89,20 +83,16 @@ public:
     {
     }
 
-    std::string name_of() const override
-    {
-        return "";
-    }
-
-    size_t size_of( type_size_resolver& tr ) const override
-    {
-        return sizeof( void* );
-    }
-
     type_id get_elem_type() const
     {
         return base;
     }
 
+    std::vector<type_id> get_dependencies() override
+    {
+        return { base };
+    }
+
+private:
     type_id base;
 };

@@ -1,5 +1,6 @@
 #pragma once
 #include <optional>
+#include <regex>
 #include <string>
 #include <vector>
 #include <clang-c/Index.h>
@@ -32,20 +33,26 @@ enum spelling_settings
     UNQUALIFIED = 1,
 };
 
-template<typename T>
 class clang_spelling_str
 {
 public:
-    explicit clang_spelling_str( T arg )
+    explicit clang_spelling_str( CXCursor cursor )
         : inited( false )
     {
-        if ( !clang_Cursor_isAnonymous( arg ) )
+        if ( !clang_Cursor_isAnonymous( cursor ) )
         {
-            clang_string = clang_getCursorSpelling( arg );
+            clang_string = clang_getCursorSpelling( cursor );
             str_view = clang_getCString( clang_string );
-
             inited = true;
         }
+    }
+
+    explicit clang_spelling_str( CXType type )
+        : inited( false )
+    {
+        clang_string = clang_getTypeSpelling( type );
+        str_view = clang_getCString( clang_string );
+        inited = true;
     }
 
     [[nodiscard]] std::string_view get() const
@@ -101,4 +108,16 @@ inline std::pair<size_t, CXType> get_pointer_level( CXType type )
     }
 
     return { pointer_count, type };
+}
+
+inline std::optional<std::string> get_elaborated_string( const CXType& cursor )
+{
+    // i am so so sorry for using std regex :(
+    const std::regex re( R"(^(struct|class|union|enum)(?:\s+((?:\w+::)+))?)" );
+    const std::string type_spelling = clang_spelling_str( cursor );
+
+    if ( std::smatch match; std::regex_search( type_spelling, match, re ) )
+        return match.str( 0 );
+
+    return std::nullopt;
 }

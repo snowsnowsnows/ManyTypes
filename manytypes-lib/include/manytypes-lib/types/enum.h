@@ -6,7 +6,7 @@
 
 #include "manytypes-lib/types/models/named_sized.h"
 
-class enum_t final : public named_sized_type_t, public dependent_t
+class enum_t final : public dependent_t
 {
 public:
     explicit enum_t( std::string name, const type_id underlying_type )
@@ -14,26 +14,26 @@ public:
     {
     }
 
-    std::string name_of( ) const override
-    {
-        return enum_name;
-    }
-
-    size_t size_of( type_size_resolver& tr ) const override
-    {
-        return tr( underlying_type );
-    }
-
     bool insert_member( uint64_t value, const std::string& name )
     {
         for ( auto& member : members )
-            assert( std::get<1>(member) != name, "member names must not be equal" );
+            assert( std::get<1>( member ) != name, "member names must not be equal" );
 
         members.emplace_back( value, name );
         return true;
     }
 
-    std::vector<type_id> get_dependencies( ) override
+    std::string get_name() const
+    {
+        return enum_name;
+    }
+
+    const std::vector<std::pair<uint64_t, std::string>>& get_members() const
+    {
+        return members;
+    }
+
+    std::vector<type_id> get_dependencies() override
     {
         return { underlying_type };
     }

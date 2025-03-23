@@ -1,4 +1,6 @@
 #include "manytypes-lib/manytypes.h"
+
+#include "manytypes-lib/formatter/clang.h"
 #include "manytypes-lib/util/util.h"
 
 #include <functional>
@@ -88,7 +90,10 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
             else
                 named_type_id = client_data->clang_db.get_type_id( named_type );
 
-            alias_forwarder_t alias( named_type_id );
+            auto str = get_elaborated_string( type );
+            assert( str, "must have value" );
+
+            elaborated_t alias( named_type_id, *str );
             client_data->clang_db.save_type_id( lower_type, client_data->type_db.insert_type( alias ) );
             break;
         }
@@ -184,20 +189,12 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
             auto type_info = client_data->type_db.lookup_type( decl_type_id );
             if ( !std::holds_alternative<null_type_t>( type_info ) )
             {
+                // todo revist this, im not sure this is the way of going about this
                 auto prev_decl = std::get<structure_t>( type_info );
-
-                // todo this is terrible design. this should be fixed
-                type_size_resolver resolver = []( type_id id )
-                {
-                    assert( true, "resolver should not be invoked" );
-                    return static_cast<size_t>( 0 );
-                };
-
-                auto prev_size = prev_decl.size_of( resolver );
                 auto prev_fields_count = prev_decl.get_fields().size();
 
                 // todo if current size warning for redefinition
-                if ( prev_size != 0 && !prev_fields_count )
+                if ( !prev_fields_count )
                     return CXChildVisit_Continue; // skip
             }
 
@@ -362,7 +359,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         assert( client_data->clang_db.is_type_defined( underlying_type ), "underlying type must be defined" );
 
         result_id = client_data->type_db.insert_type(
-            alias_type_t(
+            typedef_type_t(
                 type_name,
                 result_id ) );
 
@@ -395,12 +392,6 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
     }
 
     return CXChildVisit_Recurse;
-}
-
-void print_to_c( const std::string& file_name, const type_database_t& db, const clang_database_t& cdb )
-{
-    auto types = db.get_types();
-    types.
 }
 
 std::optional<type_database_t> parse_root_source( const std::filesystem::path& src_path )
@@ -454,45 +445,8 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
 
     return std::nullopt;
 }
-
-std::vector<type_id> order_database_nodes( const type_database_t& db )
+std::string create_header( const type_database_t& db )
 {
-    auto& types = db.get_types();
-
-    std::unordered_set<type_id> visited;
-    std::unordered_set<type_id> rec_stack;
-    std::vector<type_id> sorted;
-
-    std::function<void( type_id )> dfs_type;
-    dfs_type = [&]( const type_id id )
-    {
-        if ( rec_stack.contains( id ) )
-            throw std::runtime_error( "Cycle detected in type dependencies" );
-
-        if ( visited.contains( id ) )
-            return;
-
-        visited.insert( id );
-        rec_stack.insert( id );
-
-        const auto it = types.find( id );
-        if ( it != types.end() )
-        {
-            // for ( auto dep : getDependencies( it->second ) )
-            //{
-            //     dfs_type( dep );
-            // }
-        }
-
-        rec_stack.erase( id );
-        sorted.push_back( id );
-    };
-
-    for ( const auto& id : types | std::views::keys )
-    {
-        if ( !visited.contains( id ) )
-            dfs_type( id );
-    }
-
-    return sorted;
+    formatter_clang fmt( db );
+    return fmt.print_database();
 }

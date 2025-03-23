@@ -29,19 +29,6 @@ type_database_t::type_database_t( )
         insert_type( t );
 }
 
-size_t type_database_t::size_of( const type_id id ) const
-{
-    assert( type_info.contains( id ), "type id is not present in type database" );
-    // return size_of( type_info[ id ] );
-    return 0;
-}
-
-std::string type_database_t::name_of( const type_id id ) const
-{
-    assert( type_info.contains( id ), "type id is not present in type database" );
-    return name_of( type_info.at( id ) );
-}
-
 type_id type_database_t::insert_type( const type_id_data& data, type_id semantic_parent )
 {
     assert( semantic_parent == 0 || type_scopes.contains(semantic_parent), "semantic parent must be valid type" );

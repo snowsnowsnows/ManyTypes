@@ -20,14 +20,3 @@ bool structure_t::add_field( const base_field_t& field )
     s_fields.push_back( field );
     return true;
 }
-
-std::vector<type_id> structure_t::get_dependencies( )
-{
-    std::vector<type_id> dependencies;
-    dependencies.reserve( s_fields.size( ) );
-
-    for ( auto& member : s_fields )
-        dependencies.push_back( member.type_id );
-
-    return dependencies;
-}

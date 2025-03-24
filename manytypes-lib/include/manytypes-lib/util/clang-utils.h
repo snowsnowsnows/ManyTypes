@@ -110,10 +110,11 @@ inline std::pair<size_t, CXType> get_pointer_level( CXType type )
     return { pointer_count, type };
 }
 
-inline std::tuple<std::string, std::string, std::string> get_elaborated_string_data( const CXType& cursor )
+inline std::optional<std::tuple<std::string, std::string, std::string>> get_elaborated_string_data( const CXType& cursor )
 {
     // i am so so sorry for using std regex :(
-    std::regex pattern( R"(^\s*(?:(struct|class|union|enum)\s+)?((?:\w+::)*)?(\w+)\s*$)" );
+    //std::regex pattern( R"(^\s*(?:(struct|class|union|enum)\s+)?((?:\w+::)*)?(\w+)\s*$)" );
+    std::regex pattern( R"(^\s*(?:(struct|class|union|enum)\s+)?((?:\w+::)+)?(\w+)\s*$)" );
     const std::string type_spelling = clang_spelling_str( cursor );
 
     std::smatch match;
@@ -128,9 +129,9 @@ inline std::tuple<std::string, std::string, std::string> get_elaborated_string_d
             scope = scope.substr( 0, scope.size() - 2 );
         }
 
-        return { keyword_prefix, scope, type_name };
+        return std::tuple{ keyword_prefix, scope, type_name };
     }
 
-    assert( false, "unexpected error occured getting elaborated data" );
-    return { "", "", "" };
+    // assert( false, "unexpected error occured getting elaborated data" );
+    return std::nullopt;
 }

@@ -16,7 +16,7 @@ using base_type_t = std::variant<function_t, array_t, pointer_t, basic_type_t>;
 
 using type_id_data = std::variant<
     structure_t, enum_t,
-    typedef_type_t, elaborated_t,
+    typedef_type_t, elaborated_t, qualified_t,
     function_t, array_t, pointer_t, basic_type_t,
 
     null_type_t
@@ -32,7 +32,7 @@ public:
 
     void update_type( type_id id, const type_id_data& data );
 
-    type_id_data lookup_type( type_id id );
+    type_id_data& lookup_type( type_id id );
 
     void insert_semantic_parent( type_id id, type_id parent  );
 

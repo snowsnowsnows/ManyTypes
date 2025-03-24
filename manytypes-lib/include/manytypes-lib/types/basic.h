@@ -16,6 +16,26 @@ public:
     }
 };
 
+class qualified_t final : public dependent_t
+{
+public:
+    qualified_t( const type_id underlying, const bool is_const, const bool is_volatile, const bool is_restrict )
+        : underlying( underlying ), is_const( is_const ), is_volatile( is_volatile ), is_restrict( is_restrict )
+    {
+    }
+
+    std::vector<type_id> get_dependencies() override
+    {
+        return { underlying };
+    }
+
+    type_id underlying;
+
+    bool is_const;
+    bool is_volatile;
+    bool is_restrict;
+};
+
 class basic_type_t final : public dependent_t
 {
 public:

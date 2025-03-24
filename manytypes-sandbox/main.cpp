@@ -9,6 +9,8 @@ int main()
         f << "#include \"phnt.h\"";
     }
 
+    std::ofstream out_header("out_header.h");
+
     auto db = parse_root_source( source );
-    std::cout << create_header( *db ) << std::endl;
+    out_header << create_header( *db );
 }

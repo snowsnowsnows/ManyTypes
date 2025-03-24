@@ -4,6 +4,52 @@
 #include <functional>
 #include <ranges>
 
+void gather_all_dependencies( const type_id& id,
+    type_database_t& type_db,
+    std::unordered_set<type_id>& visited,
+    std::vector<type_id>& all_deps )
+{
+    if ( visited.contains( id ) )
+        return;
+
+    visited.insert( id );
+    std::vector<type_id> deps;
+
+    const auto& type_info = type_db.lookup_type( id );
+    std::visit(
+        overloads{
+            [&]( structure_t& s )
+            {
+                deps = s.get_dependencies();
+            },
+            [&]( enum_t& e )
+            {
+                deps = e.get_dependencies();
+            },
+            [&]( typedef_type_t& a )
+            {
+                deps = { a.type };
+            },
+            [&]( pointer_t& p )
+            {
+                deps = p.get_dependencies();
+            },
+            [&]( auto&& )
+            {
+                // Trivial type
+            } },
+        type_info );
+
+    for ( const auto& dep_id : deps )
+    {
+        if ( !visited.contains( dep_id ) )
+        {
+            all_deps.push_back( dep_id );
+            gather_all_dependencies( dep_id, type_db, visited, all_deps );
+        }
+    }
+}
+
 std::string formatter_clang::print_database()
 {
     std::unordered_set<type_id> visited;
@@ -21,32 +67,7 @@ std::string formatter_clang::print_database()
         rec_stack.insert( id );
 
         std::vector<type_id> deps;
-
-        const auto& type_info = type_db.lookup_type( id );
-        std::visit(
-            overloads{
-                [&]( structure_t& s )
-                {
-                    deps = s.get_dependencies();
-                },
-                [&]( enum_t& e )
-                {
-                    deps = e.get_dependencies();
-                },
-                [&]( typedef_type_t& a )
-                {
-                    deps = { a.type };
-                },
-                [&]( pointer_t& p )
-                {
-                    deps = p.get_dependencies();
-                },
-                [&]( auto&& )
-                {
-                    // should be trivial type such as an array or something, so we can add and skip
-                    visited.insert( id );
-                } },
-            type_info );
+        gather_all_dependencies( id, type_db, visited, deps );
 
         for ( const auto& dep : deps )
             dfs_type( dep );
@@ -63,7 +84,11 @@ std::string formatter_clang::print_database()
 
     std::string out;
     for ( type_id id : sorted )
-        out += print_type( id ) + "\n";
+    {
+        auto result = print_type( id );
+        if ( !result.empty() )
+            out += result + ";\n";
+    }
 
     return out;
 }
@@ -71,7 +96,7 @@ std::string formatter_clang::print_database()
 std::string formatter_clang::print_structure( const structure_t& s )
 {
     std::string out;
-    out += std::format( "struct {} {{", s.get_name() );
+    out += std::format( "{} {} {{", s.is_union() ? "union" : "struct", s.get_name() );
 
     for ( const auto& field : s.get_fields() )
     {
@@ -84,7 +109,7 @@ std::string formatter_clang::print_structure( const structure_t& s )
             out += std::format( "\n\t{} : {};", identifier, field.bit_size );
     }
 
-    out += "\n};";
+    out += "\n}";
 
     return out;
 }
@@ -97,7 +122,7 @@ std::string formatter_clang::print_enum( const enum_t& e )
     for ( const auto& [value, name] : e.get_members() )
         out += std::format( "\n\t{} = {},", name, value );
 
-    out += "\n};";
+    out += "\n}";
 
     return out;
 }
@@ -109,7 +134,7 @@ std::string formatter_clang::print_forward_alias( const typedef_type_t& a )
     std::string identifier = a.alias;
     print_identifier( a.type, identifier );
 
-    out += std::format( "typedef {};", identifier );
+    out += std::format( "typedef {}", identifier );
 
     return out;
 }
@@ -143,13 +168,29 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
     auto type_data = type_db.lookup_type( type );
     std::visit(
         overloads{
+            [&]( const qualified_t& q )
+            {
+                std::string type_print;
+                print_identifier( q.underlying, type_print );
+
+                identifier = type_print + identifier;
+
+                if ( q.is_const )
+                    identifier = "const " + identifier;
+
+                if ( q.is_volatile )
+                    identifier = "volatile " + identifier;
+
+                if ( q.is_restrict )
+                    identifier = "restrict " + identifier;
+            },
             [&]( const elaborated_t& f )
             {
                 // add some sort of check to assert that this should be a basic type
                 std::string type_print;
                 print_identifier( f.type, type_print );
 
-                identifier = std::format("{} {}::{} ", f.sugar, f.scope,type_print) + identifier;
+                identifier = std::format( "{} {}{}", f.sugar, f.scope, type_print ) + identifier;
             },
 
             // base
@@ -163,11 +204,17 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
             },
             [&]( const structure_t& s )
             {
-                identifier = s.get_name() + " " + identifier;
+                if ( s.get_name().empty() )
+                    identifier = print_type( type ) + " " + identifier;
+                else
+                    identifier = s.get_name() + " " + identifier;
             },
             [&]( const enum_t& e )
             {
-                identifier = e.get_name() + " " + identifier;
+                if ( e.get_name().empty() )
+                    identifier = print_type( type ) + " " + identifier;
+                else
+                    identifier = e.get_name() + " " + identifier;
             },
 
             // complex types
@@ -218,6 +265,36 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
             []( const auto& a )
             {
                 assert( false, "invalid type for identifier printer found" );
+            } },
+        type_data );
+}
+
+bool formatter_clang::is_type_anonymous( const type_id type )
+{
+    auto type_data = type_db.lookup_type( type );
+    return std::visit(
+        overloads{
+            [&]( const qualified_t& q )
+            {
+                return is_type_anonymous( q.underlying );
+            },
+            [&]( const elaborated_t& f )
+            {
+                return is_type_anonymous( f.type );
+            },
+
+            [&]( const structure_t& s )
+            {
+                return s.get_name() == "";
+            },
+            [&]( const enum_t& e )
+            {
+                return e.get_name() == "";
+            },
+
+            []( const auto& a )
+            {
+                return false;
             } },
         type_data );
 }

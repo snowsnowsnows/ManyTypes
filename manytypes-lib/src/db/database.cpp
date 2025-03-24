@@ -61,7 +61,7 @@ void type_database_t::update_type( const type_id id, const type_id_data& data )
     type_info.at( id ) = data;
 }
 
-type_id_data type_database_t::lookup_type( const type_id id )
+type_id_data& type_database_t::lookup_type( const type_id id )
 {
     assert( type_info.contains( id ), "type info must contain id" );
     return type_info.at( id );

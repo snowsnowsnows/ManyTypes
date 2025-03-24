@@ -6,11 +6,20 @@
 
 #include "manytypes-lib/types/models/named_sized.h"
 
+struct enum_settings
+{
+    std::string name;
+
+    type_id underlying;
+
+    bool is_forward;
+};
+
 class enum_t final : public dependent_t
 {
 public:
-    explicit enum_t( std::string name, const type_id underlying_type )
-        : enum_name( std::move( name ) ), underlying_type( underlying_type )
+    explicit enum_t( const enum_settings& settings )
+        : settings( settings )
     {
     }
 
@@ -23,9 +32,14 @@ public:
         return true;
     }
 
+    enum_settings& get_settings()
+    {
+        return settings;
+    }
+
     std::string get_name() const
     {
-        return enum_name;
+        return settings.name;
     }
 
     const std::vector<std::pair<uint64_t, std::string>>& get_members() const
@@ -35,12 +49,11 @@ public:
 
     std::vector<type_id> get_dependencies() override
     {
-        return { underlying_type };
+        return { settings.underlying };
     }
 
 private:
     std::vector<std::pair<uint64_t, std::string>> members;
 
-    std::string enum_name;
-    type_id underlying_type;
+    enum_settings settings;
 };

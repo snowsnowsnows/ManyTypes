@@ -25,6 +25,12 @@ public:
 class elaborated_t final : public dependent_t
 {
 public:
+    explicit elaborated_t ( const type_id type )
+        : type(type), sugar( "" ), scope(""), type_name( "" )
+    {
+
+    }
+
     explicit elaborated_t( const type_id type, const std::string& sugar, const std::string& scope, const std::string& type_name )
         : type( type ), sugar( sugar ), scope(scope), type_name(type_name)
     {

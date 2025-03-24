@@ -30,4 +30,5 @@ private:
 
     std::string print_type( type_id id );
     void print_identifier( const type_id& type, std::string& identifier );
+    bool is_type_anonymous (type_id id);
 };

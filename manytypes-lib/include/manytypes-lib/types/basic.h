@@ -9,7 +9,7 @@ class null_type_t final : public dependent_t
 public:
     null_type_t() = default;
 
-    std::vector<type_id> get_dependencies() override
+    std::vector<type_id> get_dependencies() const override
     {
         assert( true, "cannot retreive dependencies for null type" );
         return {};
@@ -24,7 +24,7 @@ public:
     {
     }
 
-    std::vector<type_id> get_dependencies() override
+    std::vector<type_id> get_dependencies() const override
     {
         return { underlying };
     }
@@ -42,7 +42,7 @@ public:
     constexpr basic_type_t( const std::string_view name, const size_t size )
         : name( name ), size( size ) {}
 
-    std::vector<type_id> get_dependencies() override
+    std::vector<type_id> get_dependencies() const override
     {
         return {};
     }
@@ -83,7 +83,7 @@ public:
         return base;
     }
 
-    std::vector<type_id> get_dependencies() override
+    std::vector<type_id> get_dependencies() const override
     {
         return { base };
     }
@@ -108,7 +108,7 @@ public:
         return base;
     }
 
-    std::vector<type_id> get_dependencies() override
+    std::vector<type_id> get_dependencies() const override
     {
         return { base };
     }

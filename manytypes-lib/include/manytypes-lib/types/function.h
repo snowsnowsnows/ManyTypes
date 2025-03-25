@@ -41,7 +41,7 @@ public:
         return return_type;
     }
 
-    std::vector<type_id> get_dependencies() override
+    std::vector<type_id> get_dependencies() const override
     {
         return std::vector( args.begin(), args.end() );
     }

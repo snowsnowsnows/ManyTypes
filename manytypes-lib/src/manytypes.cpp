@@ -297,9 +297,6 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
             client_data->clang_db.save_type_id( cursor_type, decl_type_id );
         }
 
-        if (type_name == "_PROCESS_MITIGATION_CHILD_PROCESS_POLICY")
-            __debugbreak();
-
         debug_print_cursor( cursor );
 
         const auto parent_cursor = clang_getCursorSemanticParent( cursor );

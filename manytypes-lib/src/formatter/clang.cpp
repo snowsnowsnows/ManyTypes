@@ -9,13 +9,9 @@ void gather_all_dependencies( const type_id& id,
     std::unordered_set<type_id>& visited,
     std::vector<type_id>& all_deps )
 {
-    if ( visited.contains( id ) )
-        return;
-
-    visited.insert( id );
     std::vector<type_id> deps;
 
-    const auto& type_info = type_db.lookup_type( id );
+    type_id_data& type_info = type_db.lookup_type( id );
     std::visit(
         overloads{
             [&]( structure_t& s )
@@ -36,17 +32,14 @@ void gather_all_dependencies( const type_id& id,
             },
             [&]( auto&& )
             {
-                // Trivial type
+                // trivial type, no dependencies
             } },
         type_info );
 
     for ( const auto& dep_id : deps )
     {
-        if ( !visited.contains( dep_id ) )
-        {
-            all_deps.push_back( dep_id );
-            gather_all_dependencies( dep_id, type_db, visited, all_deps );
-        }
+        all_deps.push_back( dep_id );
+        gather_all_dependencies( dep_id, type_db, visited, all_deps );
     }
 }
 
@@ -63,11 +56,11 @@ std::string formatter_clang::print_database()
         if ( visited.contains( id ) )
             return;
 
-        visited.insert( id );
-        rec_stack.insert( id );
-
         std::vector<type_id> deps;
         gather_all_dependencies( id, type_db, visited, deps );
+
+        visited.insert( id );
+        rec_stack.insert( id );
 
         for ( const auto& dep : deps )
             dfs_type( dep );

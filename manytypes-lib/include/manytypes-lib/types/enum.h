@@ -47,7 +47,7 @@ public:
         return members;
     }
 
-    std::vector<type_id> get_dependencies() override
+    std::vector<type_id> get_dependencies() const override
     {
         return { settings.underlying };
     }

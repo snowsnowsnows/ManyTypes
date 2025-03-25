@@ -45,7 +45,7 @@ public:
         return settings.name;
     }
 
-    std::vector<type_id> get_dependencies() override
+    std::vector<type_id> get_dependencies() const override
     {
         std::unordered_set<type_id> deps;
         for ( auto& field : s_fields )

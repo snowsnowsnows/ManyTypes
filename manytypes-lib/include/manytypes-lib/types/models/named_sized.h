@@ -8,5 +8,5 @@ class dependent_t
 {
 public:
     virtual ~dependent_t() = default;
-    virtual std::vector<type_id> get_dependencies() = 0;
+    virtual std::vector<type_id> get_dependencies() const = 0;
 };

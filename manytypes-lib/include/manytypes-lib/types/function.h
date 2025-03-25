@@ -43,7 +43,10 @@ public:
 
     std::vector<type_id> get_dependencies() const override
     {
-        return std::vector( args.begin(), args.end() );
+        std::vector deps( args.begin(), args.end() );
+        deps.push_back( return_type );
+
+        return deps;
     }
 
 private:

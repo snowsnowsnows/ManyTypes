@@ -234,6 +234,11 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
 {
     clang_context_t* client_data = static_cast<clang_context_t*>( data );
 
+    // dont know dont care
+    if (!clang_Cursor_isNull(clang_getSpecializedCursorTemplate(cursor))) {
+        return CXChildVisit_Continue;
+    }
+
     const auto cursor_kind = clang_getCursorKind( cursor );
     switch ( cursor_kind )
     {
@@ -297,7 +302,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
             client_data->clang_db.save_type_id( cursor_type, decl_type_id );
         }
 
-        debug_print_cursor( cursor );
+        // debug_print_cursor( cursor );
 
         const auto parent_cursor = clang_getCursorSemanticParent( cursor );
         if ( (clang_Cursor_isAnonymousRecordDecl(cursor) || clang_Cursor_isAnonymous(cursor)) && !clang_Cursor_isNull( parent_cursor ) )
@@ -314,10 +319,10 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                         if ( !s.is_union() && !fields.empty() )
                         {
                             auto& back_field = fields.back();
-                            const auto prev_end_offset = back_field.bit_offset + ( back_field.bit_size + 7 ) / 8;
+                            const auto prev_end_offset = (back_field.bit_offset + ( back_field.bit_size + 7 )) / 8;
                             const auto union_align = clang_Type_getAlignOf( parent_type );
 
-                            target_bit_offset = ALIGN_UP( prev_end_offset, union_align );
+                            target_bit_offset = ALIGN_UP( prev_end_offset, union_align ) * 8;
                         }
 
                         s.add_field(
@@ -432,13 +437,15 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                     // this is a weird solution
                     // its intended to allow anonymous unions to exist and this will rename them if they are actually
                     // associated with a explicit field. i dont think theres any other way to tell
-                    auto fields = s.get_fields();
+                    auto& fields = s.get_fields();
                     if ( !fields.empty() )
                     {
                         auto& back = fields.back();
-                        if ( back.bit_offset == bit_offset && back.type_id == field_type_id )
+                        if ( back.bit_offset == bit_offset )
                         {
                             back.name = clang_spelling_str( cursor );
+                            back.type_id = field_type_id;
+
                             revised_field = true;
                         }
                     }
@@ -506,6 +513,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
     }
     case CXCursor_ClassTemplate:
     case CXCursor_FunctionTemplate:
+    case CXCursor_TemplateTypeParameter:
     case CXCursor_ClassTemplatePartialSpecialization:
     {
         // todo maybe add logging
@@ -515,9 +523,6 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
 
     return CXChildVisit_Recurse;
 }
-
-#include <Windows.h>
-_FILE_STAT_INFORMATION test;
 
 std::optional<type_database_t> parse_root_source( const std::filesystem::path& src_path )
 {

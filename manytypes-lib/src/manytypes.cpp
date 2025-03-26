@@ -30,7 +30,7 @@ type_id database_update_insert( clang_context_t* client_data, const CXType& type
 bool is_forward_declaration( const CXCursor& cursor )
 {
     const auto definition = clang_getCursorDefinition( cursor );
-    if ( clang_equalCursors( definition, clang_getNullCursor() ) )
+    if ( clang_equalCursors( definition, clang_getNullCursor( ) ) )
         return true;
 
     return !clang_equalCursors( cursor, definition );
@@ -50,7 +50,7 @@ void debug_print_cursor( const CXCursor& cursor )
         std::string filename = clang_getCString( file_name_str );
 
         std::cout << filename << ":" << line << ":" << column << ":" << std::endl;
-        std::cout.flush();
+        std::cout.flush( );
 
         clang_disposeString( file_name_str );
     }
@@ -82,7 +82,7 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
             auto pointee_type = clang_getUnqualifiedType( lower_type );
             if ( !client_data->clang_db.is_type_defined( pointee_type ) )
             {
-                pointee_type_id = client_data->type_db.insert_placeholder_type( null_type_t() );
+                pointee_type_id = client_data->type_db.insert_placeholder_type( null_type_t( ) );
                 client_data->clang_db.save_type_id( pointee_type, pointee_type_id );
             }
             else
@@ -105,13 +105,13 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
             auto element_type = clang_getElementType( lower_type );
             if ( !client_data->clang_db.is_type_defined( element_type ) )
             {
-                pointee_type_id = client_data->type_db.insert_placeholder_type( null_type_t() );
+                pointee_type_id = client_data->type_db.insert_placeholder_type( null_type_t( ) );
                 client_data->clang_db.save_type_id( element_type, pointee_type_id );
             }
             else
                 pointee_type_id = client_data->clang_db.get_type_id( element_type );
 
-            if (lower_type.kind == CXType_IncompleteArray)
+            if ( lower_type.kind == CXType_IncompleteArray )
             {
                 array_t arr( pointee_type_id );
                 database_update_insert( client_data, lower_type, arr );
@@ -133,7 +133,7 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
             auto pointee_type = clang_getPointeeType( lower_type );
             if ( !client_data->clang_db.is_type_defined( pointee_type ) )
             {
-                pointee_type_id = client_data->type_db.insert_placeholder_type( null_type_t() );
+                pointee_type_id = client_data->type_db.insert_placeholder_type( null_type_t( ) );
                 client_data->clang_db.save_type_id( pointee_type, pointee_type_id );
             }
             else
@@ -167,7 +167,7 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
             function_t fun_proto{
                 conv,
                 unwind_complex_type( client_data, clang_getResultType( lower_type ) ),
-                [&]() -> std::vector<type_id>
+                [&]( ) -> std::vector<type_id>
                 {
                     std::vector<type_id> types;
                     for ( auto i = 0; i < clang_getNumArgTypes( lower_type ); i++ )
@@ -179,7 +179,7 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
                     }
 
                     return types;
-                }()
+                }( )
             };
 
             database_update_insert( client_data, lower_type, fun_proto );
@@ -192,7 +192,7 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
             const auto named_type = clang_Type_getNamedType( lower_type );
             if ( !client_data->clang_db.is_type_defined( named_type ) )
             {
-                named_type_id = client_data->type_db.insert_placeholder_type( null_type_t() );
+                named_type_id = client_data->type_db.insert_placeholder_type( null_type_t( ) );
                 client_data->clang_db.save_type_id( clang_Type_getNamedType( lower_type ), named_type_id );
             }
             else
@@ -232,10 +232,11 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
 
 CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData data )
 {
-    clang_context_t* client_data = static_cast<clang_context_t*>( data );
+    clang_context_t* client_data = static_cast<clang_context_t*>(data);
 
     // dont know dont care
-    if (!clang_Cursor_isNull(clang_getSpecializedCursorTemplate(cursor))) {
+    if ( !clang_Cursor_isNull( clang_getSpecializedCursorTemplate( cursor ) ) )
+    {
         return CXChildVisit_Continue;
     }
 
@@ -254,8 +255,8 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         auto decl_type_byte_size = clang_Type_getSizeOf( cursor_type );
         assert(
             decl_type_byte_size != CXTypeLayoutError_Invalid &&
-                // decl_type_byte_size != CXTypeLayoutError_Incomplete && this happens for forward declared structures
-                decl_type_byte_size != CXTypeLayoutError_Dependent,
+            // decl_type_byte_size != CXTypeLayoutError_Incomplete && this happens for forward declared structures
+            decl_type_byte_size != CXTypeLayoutError_Dependent,
             "structure is not properly sized" );
 
         bool is_forward = is_forward_declaration( cursor );
@@ -289,9 +290,9 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                 auto& prev_decl = std::get<structure_t>( type_info );
 
                 // todo maybe throw exception if sizes mismatch and both are not forward
-                auto settings = prev_decl.get_settings();
+                auto settings = prev_decl.get_settings( );
                 if ( !settings.is_forward || is_forward ) // if prev decl is forward and this one is not, we want to replace
-                    return CXChildVisit_Continue;          // but this is not so we can continue
+                    return CXChildVisit_Continue; // but this is not so we can continue
             }
 
             client_data->type_db.update_type( decl_type_id, sm );
@@ -305,21 +306,21 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         // debug_print_cursor( cursor );
 
         const auto parent_cursor = clang_getCursorSemanticParent( cursor );
-        if ( (clang_Cursor_isAnonymousRecordDecl(cursor) || clang_Cursor_isAnonymous(cursor)) && !clang_Cursor_isNull( parent_cursor ) )
+        if ( ( clang_Cursor_isAnonymousRecordDecl( cursor ) || clang_Cursor_isAnonymous( cursor ) ) && !clang_Cursor_isNull( parent_cursor ) )
         {
             // check if anonymous union because it must mean
             auto parent_type = clang_getCursorType( parent_cursor );
             std::visit(
                 overloads{
-                    [&]( structure_t& s )
+                    [&] ( structure_t& s )
                     {
-                        const auto fields = s.get_fields();
+                        const auto fields = s.get_fields( );
 
                         uint32_t target_bit_offset = 0;
-                        if ( !s.is_union() && !fields.empty() )
+                        if ( !s.is_union( ) && !fields.empty( ) )
                         {
-                            auto& back_field = fields.back();
-                            const auto prev_end_offset = (back_field.bit_offset + ( back_field.bit_size + 7 )) / 8;
+                            auto& back_field = fields.back( );
+                            const auto prev_end_offset = ( back_field.bit_offset + ( back_field.bit_size + 7 ) ) / 8;
                             const auto union_align = clang_Type_getAlignOf( cursor_type );
 
                             target_bit_offset = ALIGN_UP( prev_end_offset, union_align ) * 8;
@@ -334,7 +335,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                                 .type_id = decl_type_id,
                             } );
                     },
-                    []( auto&& )
+                    [] ( auto&& )
                     {
                         assert( true, "unexpected exception occurred" );
                     } },
@@ -367,7 +368,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
             if ( !std::holds_alternative<null_type_t>( type_info ) )
             {
                 auto& prev_decl = std::get<enum_t>( type_info );
-                if ( !prev_decl.get_settings().is_forward || is_forward )
+                if ( !prev_decl.get_settings( ).is_forward || is_forward )
                     return CXChildVisit_Continue;
             }
 
@@ -412,7 +413,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         type_id_data& type_data = client_data->type_db.lookup_type( client_data->clang_db.get_type_id( parent_type ) );
         std::visit(
             overloads{
-                [&]( structure_t& s )
+                [&] ( structure_t& s )
                 {
                     int bit_width;
                     if ( clang_Cursor_isBitField( cursor ) )
@@ -425,9 +426,9 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                     const auto bit_offset = clang_Cursor_getOffsetOfField( cursor );
                     assert(
                         bit_offset != CXTypeLayoutError_Invalid &&
-                            bit_offset != CXTypeLayoutError_Incomplete &&
-                            bit_offset != CXTypeLayoutError_Dependent &&
-                            bit_offset != CXTypeLayoutError_InvalidFieldName,
+                        bit_offset != CXTypeLayoutError_Incomplete &&
+                        bit_offset != CXTypeLayoutError_Dependent &&
+                        bit_offset != CXTypeLayoutError_InvalidFieldName,
                         "field offset is invalid" );
 
                     const type_id field_type_id = unwind_complex_type( client_data, underlying_type );
@@ -437,10 +438,10 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                     // this is a weird solution
                     // its intended to allow anonymous unions to exist and this will rename them if they are actually
                     // associated with a explicit field. i dont think theres any other way to tell
-                    auto& fields = s.get_fields();
-                    if ( !fields.empty() )
+                    auto& fields = s.get_fields( );
+                    if ( !fields.empty( ) )
                     {
-                        auto& back = fields.back();
+                        auto& back = fields.back( );
                         if ( back.bit_offset == bit_offset )
                         {
                             back.name = clang_spelling_str( cursor );
@@ -454,15 +455,15 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                     {
                         s.add_field(
                             base_field_t{
-                                .bit_offset = static_cast<uint32_t>( bit_offset ),
-                                .bit_size = static_cast<uint32_t>( bit_width ),
+                                .bit_offset = static_cast<uint32_t>(bit_offset),
+                                .bit_size = static_cast<uint32_t>(bit_width),
                                 .is_bit_field = clang_Cursor_isBitField( cursor ) != 0,
                                 .name = clang_spelling_str( cursor ),
                                 .type_id = field_type_id,
                             } );
                     }
                 },
-                [&]( auto&& )
+                [&] ( auto&& )
                 {
                 },
             },
@@ -478,7 +479,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         // todo this is a hack because the way nullptr_t is declared leads to CXType_Unexposed
         // there may be a better and more formal way to handle this, but not now
         auto type_name = clang_spelling_str( cursor );
-        if ( type_name.get() == "nullptr_t" )
+        if ( type_name.get( ) == "nullptr_t" )
             return CXChildVisit_Recurse;
 
         // debug_print_cursor( cursor );
@@ -524,7 +525,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
     return CXChildVisit_Recurse;
 }
 
-std::optional<type_database_t> parse_root_source( const std::filesystem::path& src_path )
+std::optional<type_database_t> parse_root_source( const std::filesystem::path& src_path, bool bit32 )
 {
     const std::vector<std::string> clang_args = {
         "-x",
@@ -533,32 +534,32 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
         "-Xclang",
         "-ast-dump",
         "-fsyntax-only",
-        "-target x86_64-windows-msvc"
+        bit32 ? "-target x86-windows-msvc" : "-target x86_64-windows-msvc"
     };
 
     std::vector<const char*> c_args;
     for ( const auto& arg : clang_args )
-        c_args.push_back( arg.c_str() );
+        c_args.push_back( arg.c_str( ) );
 
     if ( const auto index = clang_createIndex( 0, 1 ) )
     {
         CXTranslationUnit tu = nullptr;
         const auto error = clang_parseTranslationUnit2(
             index,
-            src_path.string().c_str(),
-            c_args.data(),
-            static_cast<int>( c_args.size() ),
+            src_path.string( ).c_str( ),
+            c_args.data( ),
+            static_cast<int>(c_args.size( )),
             nullptr,
             0,
             CXTranslationUnit_DetailedPreprocessingRecord |
-                CXTranslationUnit_PrecompiledPreamble |
-                CXTranslationUnit_SkipFunctionBodies |
-                CXTranslationUnit_ForSerialization,
+            CXTranslationUnit_PrecompiledPreamble |
+            CXTranslationUnit_SkipFunctionBodies |
+            CXTranslationUnit_ForSerialization,
             &tu );
 
         if ( error == CXError_Success )
         {
-            clang_context_t ctx = {};
+            clang_context_t ctx = { };
 
             const CXCursor cursor = clang_getTranslationUnitCursor( tu );
             clang_visitChildren( cursor, visit_cursor, &ctx );
@@ -574,8 +575,9 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
 
     return std::nullopt;
 }
+
 std::string create_header( const type_database_t& db )
 {
     formatter_clang fmt( db );
-    return fmt.print_database();
+    return fmt.print_database( );
 }

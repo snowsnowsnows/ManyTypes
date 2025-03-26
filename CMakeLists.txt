@@ -77,6 +77,7 @@ set(manytypes-lib_SOURCES
 	"manytypes-lib/include/manytypes-lib/util/util.h"
 	"manytypes-lib/src/db/database.cpp"
 	"manytypes-lib/src/formatter/clang.cpp"
+	"manytypes-lib/src/formatter/x64dbg.cpp"
 	"manytypes-lib/src/manytypes.cpp"
 	"manytypes-lib/src/types/structure.cpp"
 )

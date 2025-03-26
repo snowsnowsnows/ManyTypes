@@ -50,14 +50,15 @@ std::string formatter_clang::print_database()
                     force_define_all = false;
                 }
 
-                // if constexpr ( std::is_same_v<T, typedef_type_t> )
-                // {
-                //     typedef_type_t& t = a;
-                //     if (t.alias == "PCASSEMBLY_FILE_DETAILED_INFORMATION") __debugbreak();
-                // }
+                if constexpr ( std::is_same_v<T, typedef_type_t> )
+                {
+                    typedef_type_t& t = a;
+                    if (t.alias == "LUID_AND_ATTRIBUTES_ARRAY") __debugbreak();
+                }
 
+                // todo maybe find another way of doing this without a massive or??
                 // if another type depends on this type, it must be defined so we must visit it
-                bool peek_type = std::is_same_v<T, pointer_t> || std::is_same_v<T, typedef_type_t> || std::is_same_v<T, function_t> || std::is_same_v<T, qualified_t>;
+                bool peek_type = std::is_same_v<T, pointer_t> || std::is_same_v<T, typedef_type_t> || std::is_same_v<T, function_t> || std::is_same_v<T, qualified_t> || std::is_same_v<T, array_t>;
                 if ( peek_type || force_define_all )
                     layer_deps.insert_range( a.get_dependencies() );
 

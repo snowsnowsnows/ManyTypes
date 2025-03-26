@@ -320,7 +320,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                         {
                             auto& back_field = fields.back();
                             const auto prev_end_offset = (back_field.bit_offset + ( back_field.bit_size + 7 )) / 8;
-                            const auto union_align = clang_Type_getAlignOf( parent_type );
+                            const auto union_align = clang_Type_getAlignOf( cursor_type );
 
                             target_bit_offset = ALIGN_UP( prev_end_offset, union_align ) * 8;
                         }

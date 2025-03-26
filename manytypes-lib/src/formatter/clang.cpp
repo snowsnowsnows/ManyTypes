@@ -4,82 +4,86 @@
 #include <functional>
 #include <ranges>
 
-std::string formatter_clang::print_database( )
+std::string formatter_clang::print_database()
 {
     std::unordered_set<type_id> visited;
     std::unordered_set<type_id> rec_stack;
     std::vector<type_id> sorted;
 
     std::function<void( type_id type, bool )> dfs_type;
-    dfs_type = [&] ( const type_id id, bool requested_break )
+    dfs_type = [&]( const type_id id, bool force_define_all )
     {
         // assert( !rec_stack.contains( id ), "current dependency stack should not contain id. ciruclar dep" );
         if ( visited.contains( id ) )
             return;
 
-        bool break_forced = false;
+        visited.insert( id );
+        rec_stack.insert( id );
+
         std::unordered_set<type_id> layer_deps;
 
         type_id_data& type_info = type_db.lookup_type( id );
         std::visit(
-            overloads{
-                [&] ( structure_t& s )
+            [&]( auto& a )
+            {
+                using T = std::decay_t<decltype( a )>;
+                if constexpr ( std::is_same_v<T, structure_t> || std::is_same_v<T, enum_t> )
                 {
-                    layer_deps.insert_range( s.get_dependencies( ) );
-                },
-                [&] ( enum_t& e )
+                    // structures / enums require all members to be fully defined
+                    // if we hit this then its a dependency
+                    force_define_all = true;
+                }
+                else if constexpr ( std::is_same_v<T, elaborated_t> )
                 {
-                    layer_deps.insert_range( e.get_dependencies( ) );
-                },
-                [&] ( function_t& f )
+                    // we must force underlying types to be dependencies of their underlying types
+                    // because a struct may use a typedef which forward declares a type such as this
+                    // typedef struct some_struct typedef_name
+
+                    // however, if typedef_name is used within a struct
+                    // this will cause a dependency on some_struct
+                    // so it must be defined if we are already forcing dependencies
+                    const elaborated_t& forwarder = a;
+                    force_define_all |= forwarder.sugar.empty();
+                }
+                else if constexpr ( std::is_same_v<T, pointer_t> )
                 {
-                    layer_deps.insert_range( f.get_dependencies( ) );
-                },
-                [&] ( typedef_type_t& a )
-                {
-                    layer_deps.insert( a.type );
-                },
-                [&] ( elaborated_t& e )
-                {
-                    layer_deps.insert( e.type );
-                },
-                [&] ( pointer_t& p )
-                {
-                    layer_deps.insert_range( p.get_dependencies( ) );
-                },
-                [&] ( array_t& a )
-                {
-                    layer_deps.insert_range( a.get_dependencies( ) );
-                },
-                [&] ( auto&& a )
-                {
-                    layer_deps.insert_range( a.get_dependencies( ) );
-                    // trivial type, no dependencies
-                } },
+                    force_define_all = false;
+                }
+
+                // if constexpr ( std::is_same_v<T, typedef_type_t> )
+                // {
+                //     typedef_type_t& t = a;
+                //     if (t.alias == "PCASSEMBLY_FILE_DETAILED_INFORMATION") __debugbreak();
+                // }
+
+                // if another type depends on this type, it must be defined so we must visit it
+                bool peek_type = std::is_same_v<T, pointer_t> || std::is_same_v<T, typedef_type_t> || std::is_same_v<T, function_t> || std::is_same_v<T, qualified_t>;
+                if ( peek_type || force_define_all )
+                    layer_deps.insert_range( a.get_dependencies() );
+
+                if ( !force_define_all )
+                    visited.erase( id );
+            },
             type_info );
 
-        visited.insert( id );
-        rec_stack.insert( id );
-
-        bool should_break = std::holds_alternative<pointer_t>( type_info );
         for ( const auto& dep : layer_deps )
-            dfs_type( dep, false );
+            dfs_type( dep, force_define_all );
 
         rec_stack.erase( id );
         sorted.push_back( id );
     };
 
-    for ( const auto& type_id : type_db.get_types( ) | std::views::keys )
+    for ( const auto& type_id : type_db.get_types() | std::views::keys )
     {
         if ( !visited.contains( type_id ) )
-            dfs_type( type_id );
+            dfs_type( type_id, false );
     }
 
     std::string out;
     for ( type_id id : sorted )
     {
         auto result = print_type( id, true );
-        if ( !result.empty( ) )
+        if ( !result.empty() )
             out += result + ";\n";
     }
 
@@ -89,9 +93,9 @@ std::string formatter_clang::print_database( )
 std::string formatter_clang::print_structure( structure_t& s )
 {
     std::string out;
-    out += std::format( "{} {} {{", s.is_union( ) ? "union" : "struct", s.get_name( ) );
+    out += std::format( "{} {} {{", s.is_union() ? "union" : "struct", s.get_name() );
 
-    for ( const auto& field : s.get_fields( ) )
+    for ( const auto& field : s.get_fields() )
     {
         std::string identifier = field.name;
         print_identifier( field.type_id, identifier );
@@ -110,9 +114,9 @@ std::string formatter_clang::print_structure( structure_t& s )
 std::string formatter_clang::print_enum( const enum_t& e )
 {
     std::string out;
-    out += std::format( "enum {} {{", e.get_name( ) );
+    out += std::format( "enum {} {{", e.get_name() );
 
-    for ( const auto& [value, name] : e.get_members( ) )
+    for ( const auto& [value, name] : e.get_members() )
         out += std::format( "\n\t{} = {},", name, value );
 
     out += "\n}";
@@ -136,25 +140,25 @@ std::string formatter_clang::print_type( const type_id id, bool ignore_anonymous
 {
     return std::visit(
         overloads{
-            [&] ( structure_t& s )
+            [&]( structure_t& s )
             {
-                if ( ignore_anonymous && s.get_name( ).empty( ) )
-                    return std::string( );
+                if ( ignore_anonymous && s.get_name().empty() )
+                    return std::string();
 
                 return print_structure( s );
             },
-            [&] ( const enum_t& e )
+            [&]( const enum_t& e )
             {
-                if ( ignore_anonymous && e.get_name( ).empty( ) )
-                    return std::string( );
+                if ( ignore_anonymous && e.get_name().empty() )
+                    return std::string();
 
                 return print_enum( e );
             },
-            [&] ( const typedef_type_t& t )
+            [&]( const typedef_type_t& t )
             {
                 return print_forward_alias( t );
             },
-            [&] ( const auto& a ) -> std::string
+            [&]( const auto& a ) -> std::string
             {
                 // assert( false, "unknown type visited" );
                 return "";
@@ -167,7 +171,7 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
     auto type_data = type_db.lookup_type( type );
     std::visit(
         overloads{
-            [&] ( const qualified_t& q )
+            [&]( const qualified_t& q )
             {
                 std::string type_print;
                 print_identifier( q.underlying, type_print );
@@ -183,7 +187,7 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
                 if ( q.is_restrict )
                     identifier = "restrict " + identifier;
             },
-            [&] ( const elaborated_t& f )
+            [&]( const elaborated_t& f )
             {
                 // add some sort of check to assert that this should be a basic type
                 std::string type_print;
@@ -193,36 +197,36 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
             },
 
             // base
-            [&] ( const typedef_type_t& a )
+            [&]( const typedef_type_t& a )
             {
                 identifier = a.alias + " " + identifier;
             },
-            [&] ( const basic_type_t& b )
+            [&]( const basic_type_t& b )
             {
                 identifier = b.name + " " + identifier;
             },
-            [&] ( const structure_t& s )
+            [&]( const structure_t& s )
             {
-                if ( s.get_name( ).empty( ) )
+                if ( s.get_name().empty() )
                     identifier = print_type( type ) + " " + identifier;
                 else
-                    identifier = s.get_name( ) + " " + identifier;
+                    identifier = s.get_name() + " " + identifier;
             },
-            [&] ( const enum_t& e )
+            [&]( const enum_t& e )
             {
-                if ( e.get_name( ).empty( ) )
+                if ( e.get_name().empty() )
                     identifier = print_type( type ) + " " + identifier;
                 else
-                    identifier = e.get_name( ) + " " + identifier;
+                    identifier = e.get_name() + " " + identifier;
             },
 
             // complex types
-            [&] ( const function_t& f )
+            [&]( const function_t& f )
             {
                 identifier += "(";
 
-                const auto& args = f.get_args( );
-                if ( !args.empty( ) )
+                const auto& args = f.get_args();
+                if ( !args.empty() )
                 {
                     for ( const auto& arg : args )
                     {
@@ -232,36 +236,36 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
                         identifier += arg_format + ",";
                     }
 
-                    identifier.pop_back( );
+                    identifier.pop_back();
                 }
 
                 identifier += ")";
-                print_identifier( f.get_return_type( ), identifier );
+                print_identifier( f.get_return_type(), identifier );
             },
-            [&] ( const pointer_t& p )
+            [&]( const pointer_t& p )
             {
-                const auto& pointee = type_db.lookup_type( p.get_elem_type( ) );
+                const auto& pointee = type_db.lookup_type( p.get_elem_type() );
                 if ( std::holds_alternative<function_t>( pointee ) ||
                      std::holds_alternative<array_t>( pointee ) )
                     identifier = "(*" + identifier + ")";
                 else
                     identifier = "*" + identifier;
 
-                print_identifier( p.get_elem_type( ), identifier );
+                print_identifier( p.get_elem_type(), identifier );
             },
-            [&] ( const array_t& arr )
+            [&]( const array_t& arr )
             {
-                if ( arr.is_fixed( ) )
+                if ( arr.is_fixed() )
                 {
-                    auto size = arr.get_array_size( );
+                    auto size = arr.get_array_size();
                     identifier += std::format( "[{}]", size );
                 }
                 else
                     identifier += std::format( "[]" );
 
-                print_identifier( arr.get_elem_type( ), identifier );
+                print_identifier( arr.get_elem_type(), identifier );
             },
-            [] ( const auto& a )
+            []( const auto& a )
             {
                 assert( false, "invalid type for identifier printer found" );
             } },
@@ -273,25 +277,25 @@ bool formatter_clang::is_type_anonymous( const type_id type )
     auto type_data = type_db.lookup_type( type );
     return std::visit(
         overloads{
-            [&] ( const qualified_t& q )
+            [&]( const qualified_t& q )
             {
                 return is_type_anonymous( q.underlying );
             },
-            [&] ( const elaborated_t& f )
+            [&]( const elaborated_t& f )
             {
                 return is_type_anonymous( f.type );
             },
 
-            [&] ( const structure_t& s )
+            [&]( const structure_t& s )
             {
-                return s.get_name( ) == "";
+                return s.get_name() == "";
             },
-            [&] ( const enum_t& e )
+            [&]( const enum_t& e )
             {
-                return e.get_name( ) == "";
+                return e.get_name() == "";
             },
 
-            [] ( const auto& a )
+            []( const auto& a )
             {
                 return false;
             } },

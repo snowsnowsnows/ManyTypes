@@ -114,12 +114,12 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
 
             if ( lower_type.kind == CXType_IncompleteArray )
             {
-                array_t arr( pointee_type_id, clang_Type_getSizeOf( element_type ) );
+                array_t arr( pointee_type_id, clang_Type_getSizeOf( element_type ) * 8 );
                 database_update_insert( client_data, lower_type, arr );
             }
             else
             {
-                array_t arr( pointee_type_id, clang_getNumElements( lower_type ), clang_Type_getSizeOf( element_type ) );
+                array_t arr( pointee_type_id, clang_getNumElements( lower_type ), clang_Type_getSizeOf( element_type ) * 8 );
                 database_update_insert( client_data, lower_type, arr );
             }
 
@@ -140,7 +140,13 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
             else
                 pointee_type_id = client_data->clang_db.get_type_id( pointee_type );
 
-            pointer_t ptr( pointee_type_id );
+            uint32_t target_size;
+            if ( lower_type.kind == CXType_Pointer )
+                target_size = clang_Type_getSizeOf( lower_type ) * 8;
+            else
+                target_size = client_data->type_db.bit_pointer_size;
+
+            pointer_t ptr( pointee_type_id, target_size );
             database_update_insert( client_data, lower_type, ptr );
 
             lower_type = pointee_type;
@@ -432,15 +438,15 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                         bit_offset != CXTypeLayoutError_InvalidFieldName,
                         "field offset is invalid" );
 
-                    const type_id field_type_id = unwind_complex_type( client_data, underlying_type );
 
+                    const type_id field_type_id = unwind_complex_type( client_data, underlying_type );
                     bool revised_field = false;
 
                     // this is a weird solution
                     // its intended to allow anonymous unions to exist and this will rename them if they are actually
                     // associated with a explicit field. i dont think theres any other way to tell
                     auto& fields = s.get_fields( );
-                    if ( !fields.empty( ) )
+                    if ( !s.is_union(  ) && !fields.empty( ) )
                     {
                         auto& back = fields.back( );
                         if ( back.bit_offset == bit_offset )

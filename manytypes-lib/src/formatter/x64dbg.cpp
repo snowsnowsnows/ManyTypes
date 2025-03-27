@@ -112,7 +112,28 @@ nlohmann::json x64dbg_formatter::generate_json( )
                     json_field["bitSize"] = type_db.bit_pointer_size;
                     json_field["name"] = "ptr";
                     json_field["offset"] = 0;
-                    json_field["type"] = lookup_type_name( p.get_elem_type( ) ) + "*";
+
+                    auto ptr_size = p.get_ptr_bit_size( );
+                    if ( ptr_size != type_db.bit_pointer_size )
+                    {
+                        // x64dbg wont be able to read the pointer anyways, so we can break the chain
+                        // and write in a non pointer type
+
+                        switch ( ptr_size )
+                        {
+                        case 32:
+                            json_field["type"] = "unsigned int";
+                            break;
+                        case 64:
+                            json_field["type"] = "unsigned long long";
+                            break;
+                        default:
+                            assert( false, "invalid pointer size detected" );
+                        }
+
+                    }
+                    else
+                        json_field["type"] = lookup_type_name( p.get_elem_type( ) ) + "*";
 
                     json["members"].push_back( json_field );
 
@@ -202,6 +223,9 @@ nlohmann::json x64dbg_formatter::generate_json( )
                     json["bitSize"] = settings.size;
                     json["isUnion"] = settings.is_union;
 
+                    if ( json["name"] == "__anonymous_type4794" )
+                        __debugbreak( );
+
                     for ( const auto& field : s.get_fields( ) )
                     {
                         nlohmann::json json_field;
@@ -248,14 +272,12 @@ nlohmann::json x64dbg_formatter::generate_json( )
 std::string x64dbg_formatter::get_insert_type_name( const type_id id, const std::string& name )
 {
     if ( out_type_names.contains( id ) )
-        return out_type_names[id];
+        return out_type_names.at( id );
 
-    assert( !out_type_names.contains( id ), "map must not contain type id" );
     if ( name.empty( ) )
     {
         auto fmt = std::format( "__anonymous_type{}", anonymous_counter++ );
         out_type_names[id] = fmt;
-
         return fmt;
     }
 
@@ -269,9 +291,6 @@ std::string x64dbg_formatter::lookup_type_name( const type_id id )
     while ( elaborate_chain.contains( underlying ) )
         underlying = elaborate_chain.at( underlying );
 
-    if (!out_type_names.contains( underlying ) )
-        __debugbreak(  );
-
     assert( out_type_names.contains( underlying ), "type id must exist" );
     return out_type_names.at( underlying ) + std::string( ptr_depth, '*' );
 }
@@ -281,14 +300,23 @@ std::pair<uint32_t, type_id> x64dbg_formatter::unfold_pointer_path( const type_i
     uint32_t pointer_depth = 0;
     type_id underlying_type = id;
 
-    type_id_data& data = type_db.lookup_type( id );
-    while ( std::holds_alternative<pointer_t>( data ) )
+    while ( true )
     {
-        auto& ptr = std::get<pointer_t>( data );
-        underlying_type = ptr.get_elem_type( );
-        pointer_depth++;
+        while ( elaborate_chain.contains( underlying_type ) )
+            underlying_type = elaborate_chain.at( underlying_type );
 
-        data = type_db.lookup_type( ptr.get_elem_type( ) );
+        type_id_data& data = type_db.lookup_type( underlying_type );
+        if ( std::holds_alternative<pointer_t>( data ) )
+        {
+            auto& ptr = std::get<pointer_t>( data );
+            if ( ptr.get_ptr_bit_size( ) != type_db.bit_pointer_size )
+                break; // redirect to base pointer structure
+
+            underlying_type = ptr.get_elem_type( );
+            pointer_depth++;
+        }
+        else
+            break;
     }
 
     return { pointer_depth, underlying_type };

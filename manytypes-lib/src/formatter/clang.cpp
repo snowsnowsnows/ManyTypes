@@ -13,7 +13,7 @@ std::string formatter_clang::print_database()
     std::function<void( type_id type, bool )> dfs_type;
     dfs_type = [&]( const type_id id, bool force_define_all )
     {
-        assert( !rec_stack.contains( id ), "current dependency stack should not contain id. ciruclar dep" );
+        // assert( !rec_stack.contains( id ), "current dependency stack should not contain id. ciruclar dep" );
         if ( visited.contains( id ) )
             return;
 

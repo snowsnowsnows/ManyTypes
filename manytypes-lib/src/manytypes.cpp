@@ -1,6 +1,7 @@
 #include "manytypes-lib/manytypes.h"
 
 #include "manytypes-lib/formatter/clang.h"
+#include "manytypes-lib/formatter/x64dbg.h"
 #include "manytypes-lib/util/util.h"
 
 #include <functional>
@@ -559,7 +560,7 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
 
         if ( error == CXError_Success )
         {
-            clang_context_t ctx = {};
+            clang_context_t ctx( bit32 ? 4 : 8 );
 
             const CXCursor cursor = clang_getTranslationUnitCursor( tu );
             clang_visitChildren( cursor, visit_cursor, &ctx );
@@ -580,4 +581,10 @@ std::string create_header( const type_database_t& db )
 {
     formatter_clang fmt( db );
     return fmt.print_database();
+}
+
+std::string create_x64dbg_database( const type_database_t& db )
+{
+    x64dbg_formatter fmt( db );
+    return fmt.generate_json().dump( 4 );
 }

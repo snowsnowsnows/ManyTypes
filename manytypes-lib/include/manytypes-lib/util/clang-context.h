@@ -4,8 +4,8 @@
 
 struct clang_context_t
 {
-    clang_context_t( )
-        : type_db( { } ), clang_db( type_db ), failed( false )
+    explicit clang_context_t( const uint8_t byte_size_pointer )
+        : type_db( byte_size_pointer ), clang_db( type_db ), failed( false )
     {
     }
 

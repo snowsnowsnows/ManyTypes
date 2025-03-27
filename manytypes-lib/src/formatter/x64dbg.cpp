@@ -4,12 +4,12 @@
 #include "nlohmann/json.hpp"
 
 x64dbg_formatter::x64dbg_formatter( type_database_t db )
-    : type_db( std::move( db ) ), anonymous_counter( 0 )
+    : anonymous_counter( 0 ), type_db( std::move( db ) )
 {
-    json["enums"] = {};
-    json["structUnions"] = {};
-    json["types"] = {};
-    json["functions"] = {};
+    json_db["enums"] = nlohmann::json::array();
+    json_db["structUnions"] = nlohmann::json::array();
+    json_db["types"] = nlohmann::json::array();
+    json_db["functions"] = nlohmann::json::array();
 }
 
 nlohmann::json x64dbg_formatter::generate_json()
@@ -21,58 +21,20 @@ nlohmann::json x64dbg_formatter::generate_json()
     std::function<void( type_id type, bool )> dfs_type;
     dfs_type = [&]( const type_id id, bool force_define_all )
     {
-        assert( !rec_stack.contains( id ), "current dependency stack should not contain id. ciruclar dep" );
-        if ( visited.contains( id ) )
+        if ( visited.contains( id ) || rec_stack.contains( id ) )
             return;
 
         visited.insert( id );
         rec_stack.insert( id );
 
         std::unordered_set<type_id> layer_deps;
-
-        type_id_data& type_info = type_db.lookup_type( id );
         std::visit(
             [&]( auto& a )
             {
-                using T = std::decay_t<decltype( a )>;
-                if constexpr ( std::is_same_v<T, structure_t> || std::is_same_v<T, enum_t> )
-                {
-                    // structures / enums require all members to be fully defined
-                    // if we hit this then its a dependency
-                    force_define_all = true;
-                }
-                else if constexpr ( std::is_same_v<T, elaborated_t> )
-                {
-                    // we must force underlying types to be dependencies of their underlying types
-                    // because a struct may use a typedef which forward declares a type such as this
-                    // typedef struct some_struct typedef_name
-
-                    // however, if typedef_name is used within a struct
-                    // this will cause a dependency on some_struct
-                    // so it must be defined if we are already forcing dependencies
-                    const elaborated_t& forwarder = a;
-                    force_define_all |= forwarder.sugar.empty();
-                }
-                else if constexpr ( std::is_same_v<T, pointer_t> )
-                {
-                    force_define_all = false;
-                }
-
-                // todo maybe find another way of doing this without a massive or??
-                // if another type depends on this type, it must be defined so we must visit it
-                bool peek_type = std::is_same_v<T, pointer_t> ||
-                                 std::is_same_v<T, typedef_type_t> ||
-                                 std::is_same_v<T, function_t> ||
-                                 std::is_same_v<T, qualified_t> ||
-                                 std::is_same_v<T, array_t>;
-
-                if ( peek_type || force_define_all )
-                    layer_deps.insert_range( a.get_dependencies() );
-
-                if ( !force_define_all )
-                    visited.erase( id );
+                layer_deps.insert_range( a.get_dependencies() );
             },
-            type_info );
+            type_db.lookup_type( id ) );
+
 
         for ( const auto& dep : layer_deps )
             dfs_type( dep, force_define_all );
@@ -87,20 +49,62 @@ nlohmann::json x64dbg_formatter::generate_json()
             dfs_type( type_id, false );
     }
 
-    std::string out;
+    // initialize names and basic information
     for ( type_id id : sorted )
     {
-        type_id_data& type_info = type_db.lookup_type( id );
         std::visit(
             overloads{
-                [&]( const elaborated_t& e )
+                [&]( qualified_t& q )
+                {
+                    elaborate_chain[id] = q.underlying;
+                },
+                [&]( elaborated_t& e )
                 {
                     elaborate_chain[id] = e.type;
                 },
+                [&]( basic_type_t& b )
+                {
+                    get_insert_type_name( id, b.name );
+                },
+                [&]( pointer_t& p )
+                {
+                    get_insert_type_name( id, "" );
+                },
+                [&] (function_t& f)
+                {
+                    get_insert_type_name(  id, "" );
+                },
+                [&]( array_t& a )
+                {
+                    get_insert_type_name( id, "" );
+                },
+                [&]( typedef_type_t& t )
+                {
+                    get_insert_type_name( id, t.alias );
+                },
+                [&]( structure_t& s )
+                {
+                    get_insert_type_name( id, s.get_name() );
+                },
+                [&]( enum_t& e )
+                {
+                    get_insert_type_name( id, e.get_name() );
+                },
+                [&]( auto&& a )
+                {
+                    // assert( false, "failed" );
+                } },
+            type_db.lookup_type( id ) );
+    }
+
+    for ( type_id id : sorted )
+    {
+        std::visit(
+            overloads{
                 [&]( pointer_t& p )
                 {
                     nlohmann::json json;
-                    json["name"] = insert_type_name( id, "" );
+                    json["name"] = get_insert_type_name( id, "" );
                     json["members"] = nlohmann::json::array();
                     json["size"] = type_db.bit_pointer_size;
 
@@ -112,12 +116,12 @@ nlohmann::json x64dbg_formatter::generate_json()
 
                     json["members"].push_back( json_field );
 
-                    json["structUnions"].push_back( json );
+                    json_db["structUnions"].push_back( json );
                 },
                 [&]( array_t& a )
                 {
                     nlohmann::json json;
-                    json["name"] = insert_type_name( id, "" );
+                    json["name"] = get_insert_type_name( id, "" );
                     json["members"] = nlohmann::json::array();
                     json["size"] = a.get_array_length() * a.get_elem_size();
 
@@ -131,11 +135,7 @@ nlohmann::json x64dbg_formatter::generate_json()
 
                     json["members"].push_back( json_field );
 
-                    json["structUnions"].push_back( json );
-                },
-                [&]( basic_type_t& b )
-                {
-                    insert_type_name( id, b.name );
+                    json_db["structUnions"].push_back( json );
                 },
                 [&]( typedef_type_t& t )
                 {
@@ -145,7 +145,7 @@ nlohmann::json x64dbg_formatter::generate_json()
                         const auto& f = std::get<function_t>( underlying_type_data );
 
                         nlohmann::json json;
-                        json["name"] = insert_type_name( id, t.alias );
+                        json["name"] = get_insert_type_name( id, t.alias );
                         json["rettype"] = lookup_type_name( f.get_return_type() );
                         json["args"] = nlohmann::json::array();
 
@@ -174,28 +174,28 @@ nlohmann::json x64dbg_formatter::generate_json()
                             json["args"].push_back( json_arg );
                         }
 
-                        json["functions"].push_back( json );
+                        json_db["functions"].push_back( json );
                     }
                     else
                     {
                         nlohmann::json json;
-                        json["name"] = insert_type_name( id, t.alias );
-                        json["type"] = out_type_names.at( t.type );
+                        json["name"] = get_insert_type_name( id, t.alias );
+                        json["type"] = lookup_type_name( t.type );
 
-                        json["types"].push_back( json );
+                        json_db["types"].push_back( json );
                     }
                 },
                 [&]( structure_t& s )
                 {
                     nlohmann::json json;
-                    json["name"] = insert_type_name( id, s.get_name() );
+                    json["name"] = get_insert_type_name( id, s.get_name() );
                     json["members"] = nlohmann::json::array();
 
                     auto& settings = s.get_settings();
                     json["size"] = settings.size;
                     json["isUnion"] = settings.is_union;
 
-                    for ( auto& field : s.get_fields() )
+                    for ( const auto& field : s.get_fields() )
                     {
                         nlohmann::json json_field;
                         json_field["bitSize"] = field.bit_size;
@@ -207,39 +207,42 @@ nlohmann::json x64dbg_formatter::generate_json()
                         json["members"].push_back( json_field );
                     }
 
-                    json["structUnions"].push_back( json );
+                    json_db["structUnions"].push_back( json );
                 },
                 [&]( enum_t& e )
                 {
                     nlohmann::json json;
-                    json["name"] = insert_type_name( id, e.get_name() );
+                    json["name"] = get_insert_type_name( id, e.get_name() );
                     json["members"] = nlohmann::json::array();
                     json["size"] = e.get_settings().size;
                     json["isFlags"] = true;
 
-                    for ( const auto& [name, value] : e.get_members() )
+                    for ( const auto& [val, name] : e.get_members() )
                     {
                         nlohmann::json json_member;
-                        json_member["name"] = value;
-                        json_member["value"] = name;
+                        json_member["name"] = name;
+                        json_member["value"] = static_cast<int64_t>( val );
 
                         json["members"].push_back( json_member );
                     }
 
-                    json["enums"].push_back( json );
+                    json_db["enums"].push_back( json );
                 },
                 [&]( auto&& a )
                 {
-                    assert( false, "failed" );
+                    // assert( false, "failed" );
                 } },
-            type_info );
+            type_db.lookup_type( id ) );
     }
 
-    return std::move( json );
+    return json_db;
 }
 
-std::string x64dbg_formatter::insert_type_name( const type_id id, const std::string& name )
+std::string x64dbg_formatter::get_insert_type_name( const type_id id, const std::string& name )
 {
+    if (out_type_names.contains( id ))
+        return out_type_names[id];
+
     assert( !out_type_names.contains( id ), "map must not contain type id" );
     if ( name.empty() )
     {

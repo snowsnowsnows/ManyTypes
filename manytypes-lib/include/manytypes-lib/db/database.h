@@ -25,7 +25,7 @@ using type_id_data = std::variant<
 class type_database_t
 {
 public:
-    type_database_t( uint8_t byte_pointer_size );
+    explicit type_database_t( uint8_t byte_pointer_size );
 
     type_id insert_type( const type_id_data& data, type_id semantic_parent = 0 );
     type_id insert_placeholder_type( const null_type_t& data, type_id semantic_parent = 0 );

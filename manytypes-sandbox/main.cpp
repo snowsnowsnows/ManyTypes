@@ -9,8 +9,11 @@ int main()
         f << "#include \"phnt.h\"";
     }
 
-    std::ofstream out_header("out_header.h");
+    std::ofstream out_header( "out_header.h" );
 
     auto db = parse_root_source( source );
     out_header << create_header( *db );
+
+    std::ofstream out_db( "out_db.json" );
+    out_db << create_x64dbg_database( *db );
 }

@@ -26,8 +26,8 @@ private:
     uint64_t anonymous_counter;
 
     type_database_t type_db;
-    nlohmann::json json;
+    nlohmann::json json_db;
 
-    std::string insert_type_name( type_id id, const std::string& name );
+    std::string get_insert_type_name( type_id id, const std::string& name );
     std::string lookup_type_name( type_id id);
 };

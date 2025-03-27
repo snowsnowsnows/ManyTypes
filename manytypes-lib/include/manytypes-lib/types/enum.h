@@ -33,7 +33,7 @@ public:
         return true;
     }
 
-    enum_settings& get_settings()
+    const enum_settings& get_settings() const
     {
         return settings;
     }

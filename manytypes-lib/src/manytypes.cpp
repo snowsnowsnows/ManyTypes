@@ -114,12 +114,12 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
 
             if ( lower_type.kind == CXType_IncompleteArray )
             {
-                array_t arr( pointee_type_id, clang_getNumElements( lower_type ), clang_Type_getSizeOf( element_type ) );
+                array_t arr( pointee_type_id, clang_Type_getSizeOf( element_type ) );
                 database_update_insert( client_data, lower_type, arr );
             }
             else
             {
-                array_t arr( pointee_type_id, clang_Type_getSizeOf( element_type ) );
+                array_t arr( pointee_type_id, clang_getNumElements( lower_type ), clang_Type_getSizeOf( element_type ) );
                 database_update_insert( client_data, lower_type, arr );
             }
 
@@ -356,6 +356,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
             enum_settings{
                 .name = type_name,
                 .underlying = client_data->clang_db.get_type_id( clang_getEnumDeclIntegerType( cursor ) ),
+                .size = static_cast<uint32_t>(clang_Type_getSizeOf( cursor_type )) * 8,
                 .is_forward = is_forward,
             }
         };

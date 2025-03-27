@@ -13,7 +13,7 @@ std::string formatter_clang::print_database()
     std::function<void( type_id type, bool )> dfs_type;
     dfs_type = [&]( const type_id id, bool force_define_all )
     {
-        // assert( !rec_stack.contains( id ), "current dependency stack should not contain id. ciruclar dep" );
+        assert( !rec_stack.contains( id ), "current dependency stack should not contain id. ciruclar dep" );
         if ( visited.contains( id ) )
             return;
 
@@ -48,12 +48,6 @@ std::string formatter_clang::print_database()
                 else if constexpr ( std::is_same_v<T, pointer_t> )
                 {
                     force_define_all = false;
-                }
-
-                if constexpr ( std::is_same_v<T, typedef_type_t> )
-                {
-                    typedef_type_t& t = a;
-                    if (t.alias == "LUID_AND_ATTRIBUTES_ARRAY") __debugbreak();
                 }
 
                 // todo maybe find another way of doing this without a massive or??
@@ -256,9 +250,9 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
             },
             [&]( const array_t& arr )
             {
-                if ( arr.is_fixed() )
+                if ( arr.is_fixed_length() )
                 {
-                    auto size = arr.get_array_size();
+                    auto size = arr.get_array_length();
                     identifier += std::format( "[{}]", size );
                 }
                 else

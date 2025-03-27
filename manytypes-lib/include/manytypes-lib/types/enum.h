@@ -11,6 +11,7 @@ struct enum_settings
     std::string name;
 
     type_id underlying;
+    uint32_t size;
 
     bool is_forward;
 };

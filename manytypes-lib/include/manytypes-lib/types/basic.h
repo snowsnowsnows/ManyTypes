@@ -54,28 +54,35 @@ public:
 class array_t final : public dependent_t
 {
 public:
-    explicit array_t( const type_id id, const size_t array_size )
-        : fixed_size( true )
-        , size( array_size )
+    explicit array_t( const type_id id, const size_t array_length, const size_t elem_size )
+        : fixed_length( true )
+        , length( array_length )
         , base( id )
+        , element_size( elem_size )
     {
     }
 
-    explicit array_t( const type_id id )
-        : fixed_size( true )
-        , size( 0 )
+    explicit array_t( const type_id id, const size_t elem_size )
+        : fixed_length( true )
+        , length( 0 )
         , base( id )
+        , element_size( elem_size )
     {
     }
 
-    bool is_fixed() const
+    bool is_fixed_length() const
     {
-        return fixed_size;
+        return fixed_length;
     }
 
-    size_t get_array_size() const
+    size_t get_array_length() const
     {
-        return size;
+        return length;
+    }
+
+    size_t get_elem_size() const
+    {
+        return element_size;
     }
 
     type_id get_elem_type() const
@@ -89,9 +96,10 @@ public:
     }
 
 private:
-    bool fixed_size;
+    bool fixed_length;
 
-    size_t size;
+    size_t length;
+    size_t element_size;
     type_id base;
 };
 

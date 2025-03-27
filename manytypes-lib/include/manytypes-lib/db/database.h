@@ -25,7 +25,7 @@ using type_id_data = std::variant<
 class type_database_t
 {
 public:
-    type_database_t( );
+    type_database_t( uint8_t byte_pointer_size );
 
     type_id insert_type( const type_id_data& data, type_id semantic_parent = 0 );
     type_id insert_placeholder_type( const null_type_t& data, type_id semantic_parent = 0 );
@@ -40,6 +40,7 @@ public:
     const std::unordered_map<type_id, type_id_data>& get_types( ) const;
 
     static std::array<basic_type_t, 17> types;
+    uint8_t bit_pointer_size;
 
 private:
     std::unordered_map<type_id, type_id_data> type_info;

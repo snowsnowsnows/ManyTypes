@@ -21,7 +21,8 @@ std::array<basic_type_t, 17> type_database_t::types = {
     basic_type_t{ "void", 0 }
 };
 
-type_database_t::type_database_t()
+type_database_t::type_database_t( const uint8_t byte_pointer_size )
+    : bit_pointer_size( byte_pointer_size * 8 )
 {
     curr_type_id = 1;
 

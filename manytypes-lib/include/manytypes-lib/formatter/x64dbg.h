@@ -11,16 +11,23 @@
 #include <sstream>
 #include <utility>
 
+#include <nlohmann/json.hpp>
+
 class x64dbg_formatter
 {
 public:
-    explicit x64dbg_formatter( type_database_t db )
-        : type_db( std::move( db ) )
-    {
-    }
+    explicit x64dbg_formatter( type_database_t db );
 
-    std::string generate_json();
+    nlohmann::json generate_json();
 
 private:
+    std::unordered_map<type_id, std::string> out_type_names;
+    std::unordered_map<type_id, type_id> elaborate_chain;
+    uint64_t anonymous_counter;
+
     type_database_t type_db;
+    nlohmann::json json;
+
+    std::string insert_type_name( type_id id, const std::string& name );
+    std::string lookup_type_name( type_id id);
 };

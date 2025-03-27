@@ -205,9 +205,9 @@ nlohmann::json x64dbg_formatter::generate_json( )
                     for ( const auto& field : s.get_fields( ) )
                     {
                         nlohmann::json json_field;
+                        json_field["name"] = field.name.empty( ) && !field.is_bit_field ? lookup_type_name( field.type_id ) : field.name;
                         json_field["bitSize"] = field.bit_size;
-                        json_field["name"] = field.name.empty( ) ? lookup_type_name( field.type_id ) : field.name;
-                        json_field["offset"] = field.bit_offset;
+                        json_field["bitOffset"] = field.bit_offset;
                         json_field["bitfield"] = field.is_bit_field;
                         json_field["type"] = lookup_type_name( field.type_id );
 
@@ -265,10 +265,31 @@ std::string x64dbg_formatter::get_insert_type_name( const type_id id, const std:
 
 std::string x64dbg_formatter::lookup_type_name( const type_id id )
 {
-    type_id underlying = id;
+    auto [ptr_depth, underlying] = unfold_pointer_path( id );
     while ( elaborate_chain.contains( underlying ) )
-        underlying = elaborate_chain[underlying];
+        underlying = elaborate_chain.at( underlying );
+
+    if (!out_type_names.contains( underlying ) )
+        __debugbreak(  );
 
     assert( out_type_names.contains( underlying ), "type id must exist" );
-    return out_type_names.at( underlying );
+    return out_type_names.at( underlying ) + std::string( ptr_depth, '*' );
+}
+
+std::pair<uint32_t, type_id> x64dbg_formatter::unfold_pointer_path( const type_id id )
+{
+    uint32_t pointer_depth = 0;
+    type_id underlying_type = id;
+
+    type_id_data& data = type_db.lookup_type( id );
+    while ( std::holds_alternative<pointer_t>( data ) )
+    {
+        auto& ptr = std::get<pointer_t>( data );
+        underlying_type = ptr.get_elem_type( );
+        pointer_depth++;
+
+        data = type_db.lookup_type( ptr.get_elem_type( ) );
+    }
+
+    return { pointer_depth, underlying_type };
 }

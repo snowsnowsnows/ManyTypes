@@ -2,6 +2,8 @@
 #include "manytypes-lib/db/database.h"
 #include "manytypes-lib/db/clang-database.h"
 
+namespace mt
+{
 struct clang_context_t
 {
     explicit clang_context_t( const uint8_t byte_size_pointer )
@@ -14,3 +16,4 @@ struct clang_context_t
 
     bool failed;
 };
+} // namespace mt

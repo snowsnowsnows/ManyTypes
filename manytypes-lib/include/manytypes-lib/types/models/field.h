@@ -1,6 +1,8 @@
 #pragma once
 #include <string>
 
+namespace mt
+{
 using type_id = uint64_t;
 struct base_field_t
 {
@@ -11,3 +13,4 @@ struct base_field_t
     std::string name;
     type_id type_id;
 };
+} // namespace mt

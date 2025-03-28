@@ -2,6 +2,8 @@
 #include "manytypes-lib/db/database.h"
 #include "manytypes-lib/util/clang-utils.h"
 
+namespace mt
+{
 class clang_database_t
 {
 public:
@@ -32,7 +34,7 @@ public:
         for ( auto& [cx_type, str] : type_map )
         {
             bool found = false;
-            for ( int i = 0; i < type_database_t::types.size( ) && !found; i++ )
+            for ( int i = 0; i < type_database_t::types.size() && !found; i++ )
             {
                 if ( type_database_t::types[i].name == str )
                 {
@@ -43,7 +45,7 @@ public:
 
             // some error occ
             if ( !found )
-                __debugbreak( );
+                __debugbreak();
         }
     }
 
@@ -75,3 +77,4 @@ private:
     std::unordered_map<CXType, type_id, cx_type_hash, cx_type_equal> type_map;
     type_database_t* type_db;
 };
+} // namespace mt

@@ -4,15 +4,17 @@
 
 #include "manytypes-lib/types/models/named_sized.h"
 
+namespace mt
+{
 class null_type_t final : public dependent_t
 {
 public:
-    null_type_t( ) = default;
+    null_type_t() = default;
 
-    std::vector<type_id> get_dependencies( ) const override
+    std::vector<type_id> get_dependencies() const override
     {
         assert( true, "cannot retreive dependencies for null type" );
-        return { };
+        return {};
     }
 };
 
@@ -27,7 +29,7 @@ public:
     {
     }
 
-    std::vector<type_id> get_dependencies( ) const override
+    std::vector<type_id> get_dependencies() const override
     {
         return { underlying };
     }
@@ -48,9 +50,9 @@ public:
     {
     }
 
-    std::vector<type_id> get_dependencies( ) const override
+    std::vector<type_id> get_dependencies() const override
     {
-        return { };
+        return {};
     }
 
     std::string name;
@@ -76,27 +78,27 @@ public:
     {
     }
 
-    bool is_fixed_length( ) const
+    bool is_fixed_length() const
     {
         return fixed_length;
     }
 
-    size_t get_array_length( ) const
+    size_t get_array_length() const
     {
         return length;
     }
 
-    size_t get_elem_size( ) const
+    size_t get_elem_size() const
     {
         return element_size;
     }
 
-    type_id get_elem_type( ) const
+    type_id get_elem_type() const
     {
         return base;
     }
 
-    std::vector<type_id> get_dependencies( ) const override
+    std::vector<type_id> get_dependencies() const override
     {
         return { base };
     }
@@ -118,17 +120,17 @@ public:
     {
     }
 
-    type_id get_elem_type( ) const
+    type_id get_elem_type() const
     {
         return base;
     }
 
-    std::vector<type_id> get_dependencies( ) const override
+    std::vector<type_id> get_dependencies() const override
     {
         return { base };
     }
 
-    uint32_t get_ptr_bit_size( ) const
+    uint32_t get_ptr_bit_size() const
     {
         return ptr_bit_size;
     }
@@ -137,3 +139,4 @@ private:
     type_id base;
     uint32_t ptr_bit_size;
 };
+} // namespace mt

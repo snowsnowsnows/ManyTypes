@@ -6,6 +6,8 @@
 
 #include "manytypes-lib/types/models/named_sized.h"
 
+namespace mt
+{
 struct enum_settings
 {
     std::string name;
@@ -58,3 +60,4 @@ private:
 
     enum_settings settings;
 };
+} // namespace mt

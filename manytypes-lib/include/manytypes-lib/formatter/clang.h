@@ -11,6 +11,8 @@
 #include <sstream>
 #include <utility>
 
+namespace mt
+{
 class formatter_clang
 {
 public:
@@ -22,7 +24,7 @@ public:
     std::string print_database();
 
     std::string print_forward_alias( const typedef_type_t& );
-    std::string print_structure(  structure_t& s );
+    std::string print_structure( structure_t& s );
     std::string print_enum( const enum_t& e );
 
 private:
@@ -30,5 +32,6 @@ private:
 
     std::string print_type( type_id id, bool ignore_anonymous = false );
     void print_identifier( const type_id& type, std::string& identifier );
-    bool is_type_anonymous (type_id id);
+    bool is_type_anonymous( type_id id );
 };
+} // namespace mt

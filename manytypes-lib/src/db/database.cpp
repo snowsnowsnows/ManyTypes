@@ -1,6 +1,9 @@
 #include "manytypes-lib/db/database.h"
 #include "manytypes-lib/util/util.h"
 
+namespace mt
+{
+
 std::array<basic_type_t, 17> type_database_t::types = {
     basic_type_t{ "bool", sizeof( bool ) * 8 },
     basic_type_t{ "char", sizeof( char ) * 8 },
@@ -77,3 +80,4 @@ const std::unordered_map<type_id, type_id_data>& type_database_t::get_types() co
 {
     return type_info;
 }
+} // namespace mt

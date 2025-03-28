@@ -6,6 +6,8 @@
 #include "models/field.h"
 #include "manytypes-lib/types/models/named_sized.h"
 
+namespace mt
+{
 enum class call_conv
 {
     unk,
@@ -54,3 +56,4 @@ private:
     type_id return_type;
     std::vector<type_id> args;
 };
+} // namespace mt

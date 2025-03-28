@@ -10,6 +10,8 @@
 
 #define ALIGN_UP( value, alignment ) ( ( ( value ) + ( alignment ) - 1 ) & ~( ( alignment ) - 1 ) )
 
+namespace mt
+{
 type_id database_update_insert( clang_context_t* client_data, const CXType& type, const type_id_data& data )
 {
     type_id out;
@@ -619,3 +621,4 @@ std::string create_x64dbg_database( const type_database_t& db )
     x64dbg_formatter fmt( db );
     return fmt.generate_json().dump( 4 );
 }
+} // namespace mt

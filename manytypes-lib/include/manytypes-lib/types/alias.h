@@ -1,6 +1,8 @@
 #pragma once
 #include "manytypes-lib/types/models/named_sized.h"
 
+namespace mt
+{
 // todo: combine these into one
 class typedef_type_t final : public dependent_t
 {
@@ -25,14 +27,13 @@ public:
 class elaborated_t final : public dependent_t
 {
 public:
-    explicit elaborated_t ( const type_id type )
-        : type(type), sugar( "" ), scope(""), type_name( "" )
+    explicit elaborated_t( const type_id type )
+        : type( type ), sugar( "" ), scope( "" ), type_name( "" )
     {
-
     }
 
     explicit elaborated_t( const type_id type, const std::string& sugar, const std::string& scope, const std::string& type_name )
-        : type( type ), sugar( sugar ), scope(scope), type_name(type_name)
+        : type( type ), sugar( sugar ), scope( scope ), type_name( type_name )
     {
     }
 
@@ -57,3 +58,4 @@ public:
     std::string scope;
     std::string type_name;
 };
+} // namespace mt

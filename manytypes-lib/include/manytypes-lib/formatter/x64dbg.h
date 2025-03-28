@@ -13,12 +13,14 @@
 
 #include <nlohmann/json.hpp>
 
+namespace mt
+{
 class x64dbg_formatter
 {
 public:
     explicit x64dbg_formatter( type_database_t db );
 
-    nlohmann::json generate_json( );
+    nlohmann::json generate_json();
 
 private:
     std::unordered_map<type_id, std::string> out_type_names;
@@ -33,3 +35,4 @@ private:
 
     std::pair<uint32_t, type_id> unfold_pointer_path( type_id id );
 };
+} // namespace mt

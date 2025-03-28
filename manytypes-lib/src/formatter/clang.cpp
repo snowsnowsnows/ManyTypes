@@ -4,6 +4,8 @@
 #include <functional>
 #include <ranges>
 
+namespace mt
+{
 std::string formatter_clang::print_database()
 {
     std::unordered_set<type_id> visited;
@@ -319,3 +321,4 @@ bool formatter_clang::is_type_anonymous( const type_id type )
             } },
         type_data );
 }
+} // namespace mt

@@ -8,6 +8,8 @@
 #include <clang-c/Index.h>
 #include <string_view>
 
+namespace mt
+{
 struct cx_type_hash
 {
     std::size_t operator()( const CXType& t ) const noexcept
@@ -113,7 +115,7 @@ inline std::pair<size_t, CXType> get_pointer_level( CXType type )
 inline std::optional<std::tuple<std::string, std::string, std::string>> get_elaborated_string_data( const CXType& cursor )
 {
     // i am so so sorry for using std regex :(
-    //std::regex pattern( R"(^\s*(?:(struct|class|union|enum)\s+)?((?:\w+::)*)?(\w+)\s*$)" );
+    // std::regex pattern( R"(^\s*(?:(struct|class|union|enum)\s+)?((?:\w+::)*)?(\w+)\s*$)" );
     std::regex pattern( R"(^\s*(?:(struct|class|union|enum)\s+)?((?:\w+::)+)?(\w+)\s*$)" );
     const std::string type_spelling = clang_spelling_str( cursor );
 
@@ -135,3 +137,4 @@ inline std::optional<std::tuple<std::string, std::string, std::string>> get_elab
     // assert( false, "unexpected error occured getting elaborated data" );
     return std::nullopt;
 }
+} // namespace mt

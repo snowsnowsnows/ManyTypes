@@ -7,6 +7,8 @@
 #include "manytypes-lib/types/models/field.h"
 #include "manytypes-lib/types/models/named_sized.h"
 
+namespace mt
+{
 struct structure_settings
 {
     std::string name;
@@ -65,3 +67,4 @@ protected:
     std::vector<base_field_t> s_fields;
     bool in_order_insert;
 };
+} // namespace mt

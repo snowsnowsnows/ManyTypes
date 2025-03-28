@@ -90,7 +90,7 @@ void plugin_run_loop()
 
         if ( !abort_parse )
         {
-            auto opt_db = parse_root_source( src_root );
+            auto opt_db = mt::parse_root_source( src_root );
             if ( opt_db )
             {
                 auto& db = *opt_db;
@@ -98,7 +98,7 @@ void plugin_run_loop()
                 auto target_db = manytypes_root / ( norm_image_name + ".json" );
                 if ( std::ofstream json_db( target_db, std::ios::trunc ); json_db )
                 {
-                    json_db << create_x64dbg_database( db );
+                    json_db << mt::create_x64dbg_database( db );
                     json_db.close();
 
                     dprintf( "updated json db %s", target_db.string().c_str() );

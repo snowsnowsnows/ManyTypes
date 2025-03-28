@@ -5,3 +5,5 @@ CMakerLists.txt
 CMakeLists.txt.user
 
 .idea/
+
+.vscode/

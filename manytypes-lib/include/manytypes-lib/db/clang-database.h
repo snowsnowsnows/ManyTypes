@@ -2,6 +2,8 @@
 #include "manytypes-lib/db/database.h"
 #include "manytypes-lib/util/clang-utils.h"
 
+#include <manytypes-lib/exceptions.h>
+
 namespace mt
 {
 class clang_database_t
@@ -56,7 +58,9 @@ public:
 
     type_id get_type_id( const CXType& type ) const
     {
-        assert( type_map.contains( type ) || base_kinds.contains( type.kind ), "type must exist" );
+        if ( !type_map.contains( type ) && !base_kinds.contains( type.kind ) )
+            throw TypeNotFoundException( "Type not found in the database" );
+
         if ( base_kinds.contains( type.kind ) )
             return base_kinds.at( type.kind );
 

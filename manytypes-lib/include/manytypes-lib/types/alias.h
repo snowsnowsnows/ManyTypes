@@ -1,4 +1,6 @@
 #pragma once
+#include <utility>
+
 #include "manytypes-lib/types/models/named_sized.h"
 
 namespace mt
@@ -28,12 +30,12 @@ class elaborated_t final : public dependent_t
 {
 public:
     explicit elaborated_t( const type_id type )
-        : type( type ), sugar( "" ), scope( "" ), type_name( "" )
+        : type( type )
     {
     }
 
-    explicit elaborated_t( const type_id type, const std::string& sugar, const std::string& scope, const std::string& type_name )
-        : type( type ), sugar( sugar ), scope( scope ), type_name( type_name )
+    explicit elaborated_t( const type_id type, std::string sugar, std::string scope, std::string type_name )
+        : type( type ), sugar( std::move( sugar ) ), scope( std::move( scope ) ), type_name( std::move( type_name ) )
     {
     }
 

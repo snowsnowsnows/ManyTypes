@@ -1,4 +1,5 @@
 #include "manytypes-lib/manytypes.h"
+#include "manytypes-lib/exceptions.h"
 
 #include "manytypes-lib/formatter/clang.h"
 #include "manytypes-lib/formatter/x64dbg.h"
@@ -228,7 +229,8 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
         {
             // we reached the base type, verify that it exists
             auto test = clang_spelling_str( lower_type );
-            assert( client_data->clang_db.is_type_defined( lower_type ), "type id must exist" );
+            if ( !client_data->clang_db.is_type_defined( lower_type ) )
+                throw TypeNotDefinedException( "type id must exist" );
             base_type_case = true;
 
             break;
@@ -258,16 +260,14 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
 
         // todo: in ctor check that none of the arguments are negative other than size = -1
         auto decl_type_byte_size = clang_Type_getSizeOf( cursor_type );
-        assert(
-            decl_type_byte_size != CXTypeLayoutError_Invalid &&
-                // decl_type_byte_size != CXTypeLayoutError_Incomplete && this happens for forward declared structures
-                decl_type_byte_size != CXTypeLayoutError_Dependent,
-            "structure is not properly sized" );
+        if ( decl_type_byte_size == CXTypeLayoutError_Invalid || decl_type_byte_size == CXTypeLayoutError_Dependent )
+            throw InvalidStructureException( "structure is not properly sized" );
 
         bool is_forward = is_forward_declaration( cursor );
 
         auto decl_type_byte_align = clang_Type_getAlignOf( cursor_type );
-        assert( is_forward || decl_type_byte_align > 0, "structure is not properly aligned" );
+        if ( !is_forward && decl_type_byte_align <= 0 )
+            throw InvalidStructureException( "structure is not properly aligned" );
 
         uint32_t decl_type_size = decl_type_byte_size * 8;
         uint32_t decl_type_align = decl_type_byte_align * 8;
@@ -343,7 +343,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                     },
                     []( auto&& )
                     {
-                        assert( true, "unexpected exception occurred" );
+                        throw std::runtime_error( "unexpected exception occurred" );
                     } },
                 client_data->type_db.lookup_type( client_data->clang_db.get_type_id( parent_type ) ) );
         }
@@ -396,7 +396,8 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
     case CXCursor_EnumConstantDecl:
     {
         const CXCursorKind parent_kind = clang_getCursorKind( parent );
-        assert( parent_kind == CXCursor_EnumDecl, "parent is not enum declaration" );
+        if ( parent_kind != CXCursor_EnumDecl )
+            throw InvalidParentDeclarationException( "parent is not enum declaration" );
 
         const CXType parent_type = clang_getCursorType( parent );
         enum_t& em = std::get<enum_t>(
@@ -410,9 +411,8 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
     case CXCursor_FieldDecl:
     {
         const CXCursorKind parent_kind = clang_getCursorKind( parent );
-        assert(
-            parent_kind == CXCursor_ClassDecl || parent_kind == CXCursor_StructDecl || parent_kind == CXCursor_UnionDecl,
-            "parent is not valid structure declaration" );
+        if ( parent_kind != CXCursor_ClassDecl && parent_kind != CXCursor_StructDecl && parent_kind != CXCursor_UnionDecl )
+            throw InvalidParentDeclarationException( "parent is not valid structure declaration" );
 
         auto parent_type = clang_getCursorType( parent );
         auto underlying_type = clang_getCursorType( cursor );
@@ -430,29 +430,24 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
 
                         if ( field_size == CXTypeLayoutError_Incomplete )
                         {
-                            assert(
-                                underlying_type.kind == CXType_IncompleteArray ||
-                                    ( underlying_type.kind == CXType_ConstantArray && clang_getArraySize( underlying_type ) == 0 ),
-                                "incomplete layout must be of incomplete array type" );
+                            if ( underlying_type.kind != CXType_IncompleteArray && ( underlying_type.kind != CXType_ConstantArray || clang_getArraySize( underlying_type ) != 0 ) )
+                                throw InvalidFieldException( "incomplete layout must be of incomplete array type" );
 
                             bit_width = 0;
                         }
-                        else
-                            assert( field_size >= 0, "bit width must not be value dependent" );
+                        else if ( field_size < 0 )
+                            throw InvalidFieldException( "bit width must not be value dependent" );
                     }
                     else
                     {
                         bit_width = clang_getFieldDeclBitWidth( cursor );
-                        assert( bit_width >= 0, "bit width must not be value dependent" );
+                        if ( bit_width < 0 )
+                            throw InvalidFieldException( "bit width must not be value dependent" );
                     }
 
                     const auto bit_offset = clang_Cursor_getOffsetOfField( cursor );
-                    assert(
-                        bit_offset != CXTypeLayoutError_Invalid &&
-                            bit_offset != CXTypeLayoutError_Incomplete &&
-                            bit_offset != CXTypeLayoutError_Dependent &&
-                            bit_offset != CXTypeLayoutError_InvalidFieldName,
-                        "field offset is invalid" );
+                    if ( bit_offset == CXTypeLayoutError_Invalid || bit_offset == CXTypeLayoutError_Incomplete || bit_offset == CXTypeLayoutError_Dependent || bit_offset == CXTypeLayoutError_InvalidFieldName )
+                        throw InvalidFieldException( "field offset is invalid" );
 
                     const type_id field_type_id = unwind_complex_type( client_data, underlying_type );
                     bool revised_field = false;
@@ -520,7 +515,8 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         CXType underlying_type = clang_getTypedefDeclUnderlyingType( cursor );
 
         type_id result_id = unwind_complex_type( client_data, underlying_type );
-        assert( client_data->clang_db.is_type_defined( underlying_type ), "underlying type must be defined" );
+        if ( !client_data->clang_db.is_type_defined( underlying_type ) )
+            throw TypeNotDefinedException( "underlying type must be defined" );
 
         result_id = client_data->type_db.insert_type(
             typedef_type_t(
@@ -543,7 +539,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         case CXCursor_TranslationUnit:
             break;
         default:
-            assert( true, "typedef contained within unsupported scope" );
+            throw InvalidParentDeclarationException( "typedef must be contained within a valid structure or class" );
         }
     }
     case CXCursor_ClassTemplate:
@@ -559,23 +555,27 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
     return CXChildVisit_Recurse;
 }
 
-std::optional<type_database_t> parse_root_source( const std::filesystem::path& src_path, bool bit32 )
+std::optional<type_database_t> parse_root_source( const std::filesystem::path& src_path, const bool bit32 )
 {
     const std::vector<std::string> clang_args = {
         "-x",
         "c++",
         "-fms-extensions",
         "-Xclang",
-        "-ast-dump",
         "-fsyntax-only",
-        bit32 ? "-target x86-windows-msvc" : "-target x86_64-windows-msvc"
+        "-target",
+        bit32 ? "x86-windows-msvc" : "x86_64-windows-msvc"
     };
 
     std::vector<const char*> c_args;
     for ( const auto& arg : clang_args )
         c_args.push_back( arg.c_str() );
 
+#ifdef _DEBUG
     if ( const auto index = clang_createIndex( 0, 1 ) )
+#else
+    if ( const auto index = clang_createIndex( 0, 0 ) )
+#endif
     {
         CXTranslationUnit tu = nullptr;
         const auto error = clang_parseTranslationUnit2(
@@ -593,6 +593,22 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
 
         if ( error == CXError_Success )
         {
+            const unsigned num_diagnostics = clang_getNumDiagnostics( tu );
+
+            bool error_found = false;
+            for ( unsigned i = 0; i < num_diagnostics && !error_found; i++ )
+            {
+                const CXDiagnostic diagnostic = clang_getDiagnostic( tu, i );
+                const CXDiagnosticSeverity severity = clang_getDiagnosticSeverity( diagnostic );
+                if ( severity == CXDiagnostic_Error || severity == CXDiagnostic_Fatal )
+                    error_found = true;
+
+                clang_disposeDiagnostic( diagnostic );
+            }
+
+            if ( error_found )
+                return std::nullopt;
+
             clang_context_t ctx( bit32 ? 4 : 8 );
 
             const CXCursor cursor = clang_getTranslationUnitCursor( tu );

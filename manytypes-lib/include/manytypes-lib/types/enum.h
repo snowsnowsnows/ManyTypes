@@ -28,9 +28,6 @@ public:
 
     bool insert_member( uint64_t value, const std::string& name )
     {
-        for ( auto& member : members )
-            assert( std::get<1>( member ) != name, "member names must not be equal" );
-
         members.emplace_back( value, name );
         return true;
     }

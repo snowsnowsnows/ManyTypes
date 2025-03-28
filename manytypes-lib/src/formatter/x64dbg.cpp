@@ -2,6 +2,7 @@
 
 #include "manytypes-lib/util/util.h"
 #include "nlohmann/json.hpp"
+#include "manytypes-lib/exceptions.h"
 
 namespace mt
 {
@@ -94,7 +95,7 @@ nlohmann::json x64dbg_formatter::generate_json()
                 },
                 [&]( auto&& a )
                 {
-                    // assert( false, "failed" );
+                    throw X64DbgUnknownTypeException( "failed" );
                 } },
             type_db.lookup_type( id ) );
     }
@@ -130,7 +131,7 @@ nlohmann::json x64dbg_formatter::generate_json()
                             json_field["type"] = "unsigned long long";
                             break;
                         default:
-                            assert( false, "invalid pointer size detected" );
+                            throw InvalidPointerSizeException( "invalid pointer size detected" );
                         }
                     }
                     else
@@ -289,7 +290,9 @@ std::string x64dbg_formatter::lookup_type_name( const type_id id )
     while ( elaborate_chain.contains( underlying ) )
         underlying = elaborate_chain.at( underlying );
 
-    assert( out_type_names.contains( underlying ), "type id must exist" );
+    if ( !out_type_names.contains( underlying ) )
+        throw X64DbgUnknownTypeException( "type id must exist in the output type names" );
+
     return out_type_names.at( underlying ) + std::string( ptr_depth, '*' );
 }
 

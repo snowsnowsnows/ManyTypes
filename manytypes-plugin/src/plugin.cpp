@@ -90,28 +90,35 @@ void plugin_run_loop()
 
         if ( !abort_parse )
         {
-            auto opt_db = mt::parse_root_source( src_root );
-            if ( opt_db )
+            try
             {
-                auto& db = *opt_db;
-
-                auto target_db = manytypes_root / ( norm_image_name + ".json" );
-                if ( std::ofstream json_db( target_db, std::ios::trunc ); json_db )
+                auto opt_db = mt::parse_root_source( src_root );
+                if ( opt_db )
                 {
-                    json_db << mt::create_x64dbg_database( db );
-                    json_db.close();
+                    auto& db = *opt_db;
 
-                    dprintf( "updated json db %s", target_db.string().c_str() );
-                    DbgCmdExec( std::format( "LoadTypes \"{}\"", relative( target_db,  std::filesystem::current_path() ).string() ).c_str() );
+                    auto target_db = manytypes_root / ( norm_image_name + ".json" );
+                    if ( std::ofstream json_db( target_db, std::ios::trunc ); json_db )
+                    {
+                        json_db << mt::create_x64dbg_database( db );
+                        json_db.close();
+
+                        dprintf( "updated json db %s", target_db.string().c_str() );
+                        DbgCmdExec( std::format( "LoadTypes \"{}\"", relative( target_db, std::filesystem::current_path() ).string() ).c_str() );
+                    }
+                    else
+                    {
+                        dprintf( "failed to update json db %s", target_db.string().c_str() );
+                    }
                 }
                 else
                 {
-                    dprintf( "failed to update json db %s", target_db.string().c_str() );
+                    dprintf( "unable to parse source tree" );
                 }
             }
-            else
+            catch ( mt::Exception& e )
             {
-                dprintf( "unable to parse source tree" );
+                dprintf( "exception occurred while parsing header %s", e.what() );
             }
         }
         else

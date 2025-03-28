@@ -1,5 +1,6 @@
 #include "manytypes-lib/db/database.h"
 #include "manytypes-lib/util/util.h"
+#include "manytypes-lib/exceptions.h"
 
 namespace mt
 {
@@ -35,7 +36,10 @@ type_database_t::type_database_t( const uint8_t byte_pointer_size )
 
 type_id type_database_t::insert_type( const type_id_data& data, type_id semantic_parent )
 {
-    assert( semantic_parent == 0 || type_scopes.contains( semantic_parent ), "semantic parent must be valid type" );
+    if ( !( semantic_parent == 0 || type_scopes.contains( semantic_parent ) ) )
+    {
+        throw InvalidSemanticParentException( "semantic parent must be valid type" );
+    }
 
     type_info.insert( { curr_type_id, data } );
     if ( semantic_parent )
@@ -52,22 +56,29 @@ type_id type_database_t::insert_placeholder_type( const null_type_t& data, type_
 
 void type_database_t::insert_semantic_parent( type_id id, type_id parent )
 {
-    assert( type_info.contains( id ), "type must exist" );
-    assert( type_info.contains( parent ), "parent type must exist" );
-    assert( !type_scopes.contains( id ), "type must not exist in scope" );
+    if ( !type_info.contains( id ) )
+        throw TypeNotFoundException( "type must exist" );
+    if ( !type_info.contains( parent ) )
+        throw TypeNotFoundException( "parent type must exist" );
+    if ( type_scopes.contains( id ) )
+        throw TypeAlreadyExistsException( "type must not exist in scope" );
 
     type_scopes.insert( { id, parent } );
 }
 
 void type_database_t::update_type( const type_id id, const type_id_data& data )
 {
-    assert( type_info.contains( id ), "type with current id must exist" );
+    if ( !type_info.contains( id ) )
+        throw TypeNotFoundException( "type with current id must exist" );
+
     type_info.at( id ) = data;
 }
 
 type_id_data& type_database_t::lookup_type( const type_id id )
 {
-    assert( type_info.contains( id ), "type info must contain id" );
+    if ( !type_info.contains( id ) )
+        throw TypeNotFoundException( "type info must contain id" );
+
     return type_info.at( id );
 }
 

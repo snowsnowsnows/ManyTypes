@@ -1,5 +1,6 @@
 #include "manytypes-lib/formatter/clang.h"
 #include "manytypes-lib/util/util.h"
+#include "manytypes-lib/exceptions.h"
 
 #include <functional>
 #include <ranges>
@@ -15,7 +16,10 @@ std::string formatter_clang::print_database()
     std::function<void( type_id type, bool )> dfs_type;
     dfs_type = [&]( const type_id id, bool force_define_all )
     {
-        // assert( !rec_stack.contains( id ), "current dependency stack should not contain id. ciruclar dep" );
+        if ( rec_stack.contains( id ) )
+        {
+            throw CircularDependencyException( "current dependency stack should not contain id. circular dep" );
+        }
         if ( visited.contains( id ) )
             return;
 
@@ -160,7 +164,6 @@ std::string formatter_clang::print_type( const type_id id, bool ignore_anonymous
             },
             [&]( const auto& a ) -> std::string
             {
-                // assert( false, "unknown type visited" );
                 return "";
             } },
         type_db.lookup_type( id ) );
@@ -261,7 +264,7 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
                         ptr_name = " __ptr64 ";
                         break;
                     default:
-                        assert( false, "invalid pointer size detected" );
+                        throw InvalidPointerSizeException( "invalid pointer size detected" );
                     }
                 }
 
@@ -287,7 +290,7 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
             },
             []( const auto& a )
             {
-                assert( false, "invalid type for identifier printer found" );
+                throw InvalidTypeException( "invalid type for identifier printer found" );
             } },
         type_data );
 }

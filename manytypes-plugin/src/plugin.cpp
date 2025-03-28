@@ -98,8 +98,11 @@ void plugin_run_loop()
                         json_db << mt::create_x64dbg_database( db );
                         json_db.close();
 
+                        auto types_path = relative( target_db, std::filesystem::current_path() ).string();
+                        DbgCmdExec( std::format( "ClearTypes \"{}\"", types_path.c_str() ).c_str() );
+                        DbgCmdExec( std::format( "LoadTypes \"{}\"", types_path.c_str() ).c_str() );
+
                         dprintf( "updated json db %s\n", target_db.string().c_str() );
-                        DbgCmdExec( std::format( "LoadTypes \"{}\"", relative( target_db, std::filesystem::current_path() ).string() ).c_str() );
                     }
                     else
                     {

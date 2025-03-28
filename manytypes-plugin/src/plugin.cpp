@@ -9,12 +9,22 @@
 std::atomic<const char*> curr_image_name;
 std::unordered_map<std::string, std::filesystem::file_time_type> last_save_time;
 
-bool create_file( const std::filesystem::path& path )
+bool create_file( const std::filesystem::path& path, const bool hidden = false )
 {
     create_directories( path.parent_path() );
 
-    const std::ofstream file( path );
-    return static_cast<bool>( file );
+    if ( !exists( path ) )
+    {
+        CloseHandle( CreateFileW( path.c_str(),
+            GENERIC_WRITE,
+            0,
+            nullptr,
+            CREATE_NEW,
+            ( hidden ? FILE_ATTRIBUTE_HIDDEN : 0 ) | FILE_ATTRIBUTE_NORMAL,
+            nullptr ) );
+    }
+
+    return true;
 }
 
 void plugin_run_loop()
@@ -25,15 +35,13 @@ void plugin_run_loop()
 
     std::filesystem::path image_path( curr_image );
 
-    std::string norm_image_name = image_path.filename().string();
+    std::string norm_image_name = image_path.stem().string();
     std::ranges::replace( norm_image_name, ' ', '-' );
 
     const auto run_root = std::filesystem::current_path();
 
     const auto manytypes_root = run_root / "ManyTypes";
     const auto dbg_workspace = manytypes_root / norm_image_name;
-    create_directories( dbg_workspace );
-
     const auto dbg_workspace_root = dbg_workspace / "project.h";
     create_file( dbg_workspace_root );
 
@@ -41,51 +49,35 @@ void plugin_run_loop()
     paths_to_check.push( manytypes_root );
 
     bool must_refresh = false;
-    while ( !paths_to_check.empty() && !must_refresh )
+    for ( auto& dir_item : std::filesystem::directory_iterator( dbg_workspace ) )
     {
-        auto current_workspace = std::filesystem::directory_iterator( paths_to_check.front() );
-        for ( auto& dir_item : std::filesystem::directory_iterator( dbg_workspace ) )
+        if ( dir_item.is_regular_file() )
         {
-            if ( dir_item.is_regular_file() )
-            {
-                const auto& file = dir_item.path();
-                if ( file.extension() != ".h" && file.extension() != ".hpp" )
-                    continue;
+            const auto& file = dir_item.path();
+            if ( file.extension() != ".h" && file.extension() != ".hpp" )
+                continue;
 
-                auto last_write = last_write_time( file );
-                if ( last_save_time[file.filename().string()] != last_write )
-                    must_refresh = true;
+            auto last_write = last_write_time( file );
+            if ( last_save_time[file.filename().string()] != last_write )
+                must_refresh = true;
 
-                last_save_time[file.string()] = last_write;
-            }
-            else if ( dir_item.is_directory() )
-            {
-                paths_to_check.push( dir_item );
-            }
+            last_save_time[file.filename().string()] = last_write;
         }
-
-        paths_to_check.pop();
     }
 
     if ( must_refresh )
     {
-        // we must run clang parser and update x64dbg types
         const std::filesystem::path global = manytypes_root / "global.h";
-        if ( !exists( global ) ) // global header must exist
-            create_file( global );
+        create_file( global );
 
-        // hidden source file
         const std::filesystem::path src_root = manytypes_root / "source.cpp";
-        if ( !exists( src_root ) )
-        {
-            create_file( src_root );
-            SetFileAttributesA( src_root.string().c_str(), FILE_ATTRIBUTE_HIDDEN );
-        }
+        create_file( src_root, true );
 
         // write dummy include
         bool abort_parse = false;
         {
-            if ( std::ofstream src_file( src_root, std::ios::trunc ); src_file )
+            std::ofstream src_file( src_root, std::ios::trunc );
+            if ( src_file )
             {
                 src_file << "#include \"global.h\"\n";
                 src_file << "#include \"" << norm_image_name << "/project.h\"";
@@ -110,7 +102,7 @@ void plugin_run_loop()
                     json_db.close();
 
                     dprintf( "updated json db %s", target_db.string().c_str() );
-                    DbgCmdExec( std::format( "LoadTypes \"{}\"", relative( target_db, manytypes_root ).string() ).c_str() );
+                    DbgCmdExec( std::format( "LoadTypes \"{}\"", relative( target_db,  std::filesystem::current_path() ).string() ).c_str() );
                 }
                 else
                 {
@@ -123,7 +115,9 @@ void plugin_run_loop()
             }
         }
         else
-            dprintf( "aborting header parse, unable to write to source %s", src_root.c_str() );
+        {
+            dprintf( "aborting header parse, unable to write %s", src_root.c_str() );
+        }
     }
 }
 

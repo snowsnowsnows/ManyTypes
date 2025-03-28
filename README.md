@@ -16,6 +16,13 @@ TLDR:
 2. Open `x64dbg/ManyTypes/[ImageName]`
 3. Edit and save `project.h`
 4. Use the newly created type in struct window.
+5. Profit
+
+**DO NOT MODIFY SOURCE.CPP**
+
+## Library Usage
+Todo
 
 ## Missing Features
 - Template parsing
+- Collapsing array type into single field

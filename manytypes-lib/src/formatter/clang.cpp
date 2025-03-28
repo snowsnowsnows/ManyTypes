@@ -87,6 +87,9 @@ std::string formatter_clang::print_database()
 
 std::string formatter_clang::print_structure( structure_t& s )
 {
+    if ( s.get_settings().is_forward )
+        return "";
+
     std::string out;
     out += std::format( "{} {} {{", s.is_union() ? "union" : "struct", s.get_name() );
 
@@ -240,11 +243,31 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
             [&]( const pointer_t& p )
             {
                 const auto& pointee = type_db.lookup_type( p.get_elem_type() );
+
+                std::string ptr_name;
+                if ( const auto ptr_size = p.get_ptr_bit_size(); ptr_size != type_db.bit_pointer_size )
+                {
+                    // x64dbg wont be able to read the pointer anyways, so we can break the chain
+                    // and write in a non pointer type
+
+                    switch ( ptr_size )
+                    {
+                    case 32:
+                        ptr_name = " __ptr32 ";
+                        break;
+                    case 64:
+                        ptr_name = " __ptr64 ";
+                        break;
+                    default:
+                        assert( false, "invalid pointer size detected" );
+                    }
+                }
+
                 if ( std::holds_alternative<function_t>( pointee ) ||
                      std::holds_alternative<array_t>( pointee ) )
-                    identifier = "(*" + identifier + ")";
+                    identifier = "(*" + ptr_name + identifier + ")";
                 else
-                    identifier = "*" + identifier;
+                    identifier = "*" + ptr_name + identifier;
 
                 print_identifier( p.get_elem_type(), identifier );
             },

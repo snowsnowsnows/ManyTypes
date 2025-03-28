@@ -7,6 +7,9 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
 	message(FATAL_ERROR "In-tree builds are not supported. Run CMake from a separate directory: cmake -B build")
 endif()
 
+# Enable support for MSVC_RUNTIME_LIBRARY
+cmake_policy(SET CMP0091 NEW)
+
 set(CMKR_ROOT_PROJECT OFF)
 if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 	set(CMKR_ROOT_PROJECT ON)
@@ -22,6 +25,10 @@ if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 
 	# Create a configure-time dependency on cmake.toml to improve IDE support
 	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS cmake.toml)
+	if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
+		set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+	endif()
+
 endif()
 
 include("cmake/msvc-static-runtime.cmake")
@@ -38,9 +45,7 @@ endif()
 message(STATUS "Fetching x64dbg...")
 FetchContent_Declare(x64dbg
 	URL
-		"https://sourceforge.net/projects/x64dbg/files/snapshots/snapshot_2023-06-10_18-05.zip"
-	URL_HASH
-		SHA1=04468bd61fb36d6b10d17f342f03ef12f5b2ce62
+		"https://sourceforge.net/projects/x64dbg/files/snapshots/snapshot_2025-03-15_15-57.zip"
 )
 FetchContent_MakeAvailable(x64dbg)
 
@@ -157,4 +162,9 @@ endif()
 
 target_link_libraries(manytypes-plugin PUBLIC
 	manytypes-lib
+)
+
+set_target_properties(manytypes-plugin PROPERTIES
+	MSVC_RUNTIME_LIBRARY
+		"MultiThreaded$<$<CONFIG:Debug>:Debug>"
 )

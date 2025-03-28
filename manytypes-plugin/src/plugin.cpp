@@ -11,22 +11,24 @@ std::unordered_map<std::string, std::filesystem::file_time_type> last_save_time;
 
 bool create_file( const std::filesystem::path& path )
 {
-    create_directories( path.parent_path( ) );
+    create_directories( path.parent_path() );
 
     const std::ofstream file( path );
-    return static_cast<bool>(file);
+    return static_cast<bool>( file );
 }
 
-void plugin_run_loop( )
+void plugin_run_loop()
 {
     const char* curr_image = curr_image_name;
     if ( curr_image == nullptr )
         return;
 
-    std::string norm_image_name = curr_image;
+    std::filesystem::path image_path( curr_image );
+
+    std::string norm_image_name = image_path.filename().string();
     std::ranges::replace( norm_image_name, ' ', '-' );
 
-    const auto run_root = std::filesystem::current_path( );
+    const auto run_root = std::filesystem::current_path();
 
     const auto manytypes_root = run_root / "ManyTypes";
     const auto dbg_workspace = manytypes_root / norm_image_name;
@@ -39,30 +41,30 @@ void plugin_run_loop( )
     paths_to_check.push( manytypes_root );
 
     bool must_refresh = false;
-    while ( !paths_to_check.empty( ) && !must_refresh )
+    while ( !paths_to_check.empty() && !must_refresh )
     {
-        auto current_workspace = std::filesystem::directory_iterator( paths_to_check.front( ) );
+        auto current_workspace = std::filesystem::directory_iterator( paths_to_check.front() );
         for ( auto& dir_item : std::filesystem::directory_iterator( dbg_workspace ) )
         {
-            if ( dir_item.is_regular_file( ) )
+            if ( dir_item.is_regular_file() )
             {
-                const auto& file = dir_item.path( );
-                if ( file.extension( ) != ".h" && file.extension( ) != ".hpp" )
+                const auto& file = dir_item.path();
+                if ( file.extension() != ".h" && file.extension() != ".hpp" )
                     continue;
 
                 auto last_write = last_write_time( file );
-                if ( last_save_time[file.filename( ).string( )] != last_write )
+                if ( last_save_time[file.filename().string()] != last_write )
                     must_refresh = true;
 
-                last_save_time[file.string( )] = last_write;
+                last_save_time[file.string()] = last_write;
             }
-            else if ( dir_item.is_directory( ) )
+            else if ( dir_item.is_directory() )
             {
                 paths_to_check.push( dir_item );
             }
         }
 
-        paths_to_check.pop( );
+        paths_to_check.pop();
     }
 
     if ( must_refresh )
@@ -77,20 +79,21 @@ void plugin_run_loop( )
         if ( !exists( src_root ) )
         {
             create_file( src_root );
-            SetFileAttributesA( src_root.string( ).c_str( ), FILE_ATTRIBUTE_HIDDEN );
+            SetFileAttributesA( src_root.string().c_str(), FILE_ATTRIBUTE_HIDDEN );
         }
 
         // write dummy include
         bool abort_parse = false;
         {
-            std::fstream src_file( src_root, std::ios::trunc );
-            if ( src_file )
+            if ( std::ofstream src_file( src_root, std::ios::trunc ); src_file )
             {
                 src_file << "#include \"global.h\"\n";
                 src_file << "#include \"" << norm_image_name << "/project.h\"";
             }
             else
+            {
                 abort_parse = true;
+            }
         }
 
         if ( !abort_parse )
@@ -100,6 +103,19 @@ void plugin_run_loop( )
             {
                 auto& db = *opt_db;
 
+                auto target_db = manytypes_root / ( norm_image_name + ".json" );
+                if ( std::ofstream json_db( target_db, std::ios::trunc ); json_db )
+                {
+                    json_db << create_x64dbg_database( db );
+                    json_db.close();
+
+                    dprintf( "updated json db %s", target_db.string().c_str() );
+                    DbgCmdExec( std::format( "LoadTypes \"{}\"", relative( target_db, manytypes_root ).string() ).c_str() );
+                }
+                else
+                {
+                    dprintf( "failed to update json db %s", target_db.string().c_str() );
+                }
             }
             else
             {
@@ -107,7 +123,7 @@ void plugin_run_loop( )
             }
         }
         else
-            dprintf( "aborting header parse, unable to write to source" );
+            dprintf( "aborting header parse, unable to write to source %s", src_root.c_str() );
     }
 }
 
@@ -124,13 +140,13 @@ bool plugin_init( PLUG_INITSTRUCT* initStruct )
 }
 
 // Deinitialize your plugin data here.
-void plugin_stop( )
+void plugin_stop()
 {
     dprintf( "plugin_stop(pluginHandle: %d)\n", pluginHandle );
 }
 
 // Do GUI/Menu related things here.
-void plugin_setup( )
+void plugin_setup()
 {
     dprintf( "plugin_setup(pluginHandle: %d)\n", pluginHandle );
 }

@@ -1,13 +1,13 @@
 [project]
 name = "ManyTypes"
+msvc-runtime="dynamic"
 include-before = [
     "cmake/msvc-static-runtime.cmake",
     "cmake/msvc-configurations.cmake",
 ]
 
 [fetch-content.x64dbg]
-url = "https://sourceforge.net/projects/x64dbg/files/snapshots/snapshot_2023-06-10_18-05.zip"
-sha1 = "04468bd61fb36d6b10d17f342f03ef12f5b2ce62"
+url = "https://sourceforge.net/projects/x64dbg/files/snapshots/snapshot_2025-03-15_15-57.zip"
 include-after = ["cmake/x64dbg.cmake"]
 
 [target.libclang]
@@ -36,6 +36,7 @@ add-function = "x64dbg_plugin"
 
 [target.manytypes-plugin]
 type = "plugin"
+msvc-runtime="static"
 sources = ["manytypes-plugin/**"]
 headers = ["manytypes-plugin/**"]
 link-libraries = ["::manytypes-lib"]

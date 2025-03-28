@@ -130,7 +130,6 @@ nlohmann::json x64dbg_formatter::generate_json( )
                         default:
                             assert( false, "invalid pointer size detected" );
                         }
-
                     }
                     else
                         json_field["type"] = lookup_type_name( p.get_elem_type( ) ) + "*";
@@ -222,9 +221,6 @@ nlohmann::json x64dbg_formatter::generate_json( )
                     auto& settings = s.get_settings( );
                     json["bitSize"] = settings.size;
                     json["isUnion"] = settings.is_union;
-
-                    if ( json["name"] == "__anonymous_type4794" )
-                        __debugbreak( );
 
                     for ( const auto& field : s.get_fields( ) )
                     {

@@ -46,6 +46,11 @@ public:
         return type;
     }
 
+    bool is_clear()
+    {
+        return sugar.empty() && scope.empty();
+    }
+
     type_id type;
 
     std::string sugar;

@@ -71,21 +71,16 @@ void plugin_run_loop()
         create_file( global );
 
         const std::filesystem::path src_root = manytypes_root / "source.cpp";
-        create_file( src_root, true );
+        create_file( src_root );
 
         // write dummy include
         bool abort_parse = false;
         {
             std::ofstream src_file( src_root, std::ios::trunc );
             if ( src_file )
-            {
-                src_file << "#include \"global.h\"\n";
                 src_file << "#include \"" << norm_image_name << "/project.h\"";
-            }
             else
-            {
                 abort_parse = true;
-            }
         }
 
         if ( !abort_parse )
@@ -97,33 +92,33 @@ void plugin_run_loop()
                 {
                     auto& db = *opt_db;
 
-                    auto target_db = manytypes_root / ( norm_image_name + ".json" );
+                    auto target_db = dbg_workspace / ( norm_image_name + ".json" );
                     if ( std::ofstream json_db( target_db, std::ios::trunc ); json_db )
                     {
                         json_db << mt::create_x64dbg_database( db );
                         json_db.close();
 
-                        dprintf( "updated json db %s", target_db.string().c_str() );
+                        dprintf( "updated json db %s\n", target_db.string().c_str() );
                         DbgCmdExec( std::format( "LoadTypes \"{}\"", relative( target_db, std::filesystem::current_path() ).string() ).c_str() );
                     }
                     else
                     {
-                        dprintf( "failed to update json db %s", target_db.string().c_str() );
+                        dprintf( "failed to update json db %s\n", target_db.string().c_str() );
                     }
                 }
                 else
                 {
-                    dprintf( "unable to parse source tree" );
+                    dprintf( "unable to parse source tree\n" );
                 }
             }
             catch ( mt::Exception& e )
             {
-                dprintf( "exception occurred while parsing header %s", e.what() );
+                dprintf( "exception occurred while parsing header %s\n", e.what() );
             }
         }
         else
         {
-            dprintf( "aborting header parse, unable to write %s", src_root.c_str() );
+            dprintf( "aborting header parse, unable to write %s\n", src_root.c_str() );
         }
     }
 }

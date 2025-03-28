@@ -49,11 +49,11 @@ extern "C" __declspec(dllexport) void CBWINEVENT( CBTYPE bType, PLUG_CB_WINEVENT
 extern "C" __declspec(dllexport) void CBINITDEBUG( CBTYPE bType, PLUG_CB_INITDEBUG* callbackInfo )
 {
     set_workspace_target( callbackInfo->szFileName );
-    dprintf( "debug inited %s", callbackInfo->szFileName );
+    dprintf( "debug inited %s\n", callbackInfo->szFileName );
 }
 
 extern "C" __declspec(dllexport) void CBSTOPDEBUG( CBTYPE bType, PLUG_CB_STOPDEBUG* callbackInfo )
 {
-    dprintf( "debug stopped" );
+    dprintf( "debug stopped\n" );
     set_workspace_target( nullptr );
 }

@@ -593,6 +593,7 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
 
         if ( error == CXError_Success )
         {
+            /*
             const unsigned num_diagnostics = clang_getNumDiagnostics( tu );
 
             bool error_found = false;
@@ -602,12 +603,16 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
                 const CXDiagnosticSeverity severity = clang_getDiagnosticSeverity( diagnostic );
                 if ( severity == CXDiagnostic_Error || severity == CXDiagnostic_Fatal )
                     error_found = true;
-
+#ifdef _DEBUG
+                CXString formatted_diag = clang_formatDiagnostic(diagnostic, clang_defaultDiagnosticDisplayOptions());
+                std::cout << "Diagnostic " << clang_getCString(formatted_diag) << std::endl << std::flush;
+#endif
                 clang_disposeDiagnostic( diagnostic );
             }
 
             if ( error_found )
                 return std::nullopt;
+            */
 
             clang_context_t ctx( bit32 ? 4 : 8 );
 

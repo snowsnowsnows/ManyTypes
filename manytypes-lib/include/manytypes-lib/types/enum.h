@@ -26,7 +26,7 @@ public:
     {
     }
 
-    bool insert_member( uint64_t value, const std::string& name )
+    bool insert_member( int64_t value, const std::string& name )
     {
         members.emplace_back( value, name );
         return true;
@@ -42,7 +42,7 @@ public:
         return settings.name;
     }
 
-    const std::vector<std::pair<uint64_t, std::string>>& get_members() const
+    const std::vector<std::pair<int64_t, std::string>>& get_members() const
     {
         return members;
     }
@@ -53,7 +53,7 @@ public:
     }
 
 private:
-    std::vector<std::pair<uint64_t, std::string>> members;
+    std::vector<std::pair<int64_t, std::string>> members;
 
     enum_settings settings;
 };

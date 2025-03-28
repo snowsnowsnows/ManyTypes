@@ -102,7 +102,7 @@ void plugin_run_loop()
                         DbgCmdExec( std::format( "ClearTypes \"{}\"", types_path.c_str() ).c_str() );
                         DbgCmdExec( std::format( "LoadTypes \"{}\"", types_path.c_str() ).c_str() );
 
-                        dprintf( "updated json db %s\n", target_db.string().c_str() );
+                        dprintf( "updated json db %s\n", types_path.c_str() );
                     }
                     else
                     {

@@ -4,7 +4,7 @@ AccessModifierOffset: '-4'
 AlignAfterOpenBracket: DontAlign
 AllowAllConstructorInitializersOnNextLine: 'false'
 AllowShortFunctionsOnASingleLine: InlineOnly
-AllowShortLambdasOnASingleLine: None
+AllowShortLambdasOnASingleLine: All
 AlwaysBreakTemplateDeclarations: 'Yes'
 BinPackArguments: 'false'
 BinPackParameters: 'false'

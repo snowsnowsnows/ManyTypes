@@ -9,164 +9,146 @@ namespace mt
 {
 std::string formatter_clang::print_database()
 {
-    std::unordered_set<type_id> visited;
-    std::unordered_set<type_id> rec_stack;
-    std::vector<type_id> sorted;
+    std::string result;
+    result += print_forwards();
+    result += print_typedefs();
+    result += print_enums();
+    result += print_structs();
 
-    std::function<void( type_id type, bool )> dfs_type;
-    dfs_type = [&]( const type_id id, bool force_define_all )
+    return result;
+}
+std::string formatter_clang::print_forwards()
+{
+    std::string result;
+
+    for ( auto [type_id, type_id_data] : type_db.get_types() )
     {
-        if ( rec_stack.contains( id ) )
-        {
-            throw CircularDependencyException( "current dependency stack should not contain id. circular dep" );
-        }
-        if ( visited.contains( id ) )
+        std::visit(
+            overloads{
+                [&result]( structure_t& s )
+                {
+                    if ( !s.get_name().empty() )
+                        result += std::format( "{} {};\n", s.is_union() ? "union" : "struct", s.get_name() );
+                },
+                [&result]( enum_t& e )
+                {
+                    if ( !e.get_name().empty() )
+                        result += std::format( "enum {};\n", e.get_name() );
+                },
+                [&result]( auto&& ) {} },
+            type_id_data );
+    }
+
+    return result;
+}
+
+std::string formatter_clang::print_typedefs()
+{
+    std::string result;
+    std::unordered_set<type_id> printed_typedefs;
+    std::unordered_set<type_id> printed_stack;
+
+    std::function<void( type_id )> recurse_typedef;
+    recurse_typedef = [&]( const type_id id )
+    {
+        if ( printed_typedefs.contains( id ) )
             return;
 
-        visited.insert( id );
-        rec_stack.insert( id );
+        if ( printed_stack.contains( id ) )
+            __debugbreak();
 
-        std::unordered_set<type_id> layer_deps;
+        printed_stack.insert( id );
 
-        type_id_data& type_info = type_db.lookup_type( id );
-        std::visit(
-            [&]( auto& a )
+        const auto type_data = type_db.lookup_type( id );
+        auto result_string = std::visit(
+            [&]( auto&& a ) -> std::string
             {
                 using T = std::decay_t<decltype( a )>;
-                if constexpr ( std::is_same_v<T, structure_t> || std::is_same_v<T, enum_t> )
+                if constexpr ( !std::is_same_v<T, structure_t> &&
+                               !std::is_same_v<T, enum_t> )
                 {
-                    // structures / enums require all members to be fully defined
-                    // if we hit this then its a dependency
-                    force_define_all = true;
-                }
-                else if constexpr ( std::is_same_v<T, elaborated_t> )
-                {
-                    // we must force underlying types to be dependencies of their underlying types
-                    // because a struct may use a typedef which forward declares a type such as this
-                    // typedef struct some_struct typedef_name
-
-                    // however, if typedef_name is used within a struct
-                    // this will cause a dependency on some_struct
-                    // so it must be defined if we are already forcing dependencies
-                    const elaborated_t& forwarder = a;
-                    force_define_all |= forwarder.sugar.empty();
-                }
-                else if constexpr ( std::is_same_v<T, pointer_t> )
-                {
-                    force_define_all = false;
+                    auto deps = a.get_dependencies();
+                    for ( auto dep : deps )
+                        recurse_typedef( dep );
                 }
 
-                // todo maybe find another way of doing this without a massive or??
-                // if another type depends on this type, it must be defined so we must visit it
-                bool peek_type = std::is_same_v<T, pointer_t> || std::is_same_v<T, typedef_type_t> || std::is_same_v<T, function_t> || std::is_same_v<T, qualified_t> || std::is_same_v<T, array_t>;
-                if ( peek_type || force_define_all )
-                    layer_deps.insert_range( a.get_dependencies() );
+                if constexpr ( std::is_same_v<T, typedef_type_t> )
+                    return print_forward_alias( a ) + ";\n";
 
-                if ( !force_define_all )
-                    visited.erase( id );
+                return "";
             },
-            type_info );
+            type_data );
 
-        for ( const auto& dep : layer_deps )
-            dfs_type( dep, force_define_all );
+        result += result_string;
 
-        rec_stack.erase( id );
-        sorted.push_back( id );
+        printed_typedefs.insert( id );
+        printed_stack.erase( id );
     };
 
-    for ( const auto& type_id : type_db.get_types() | std::views::keys )
+    for ( const auto type_id : type_db.get_types() | std::views::keys )
+        recurse_typedef( type_id );
+
+    return result;
+}
+
+std::string formatter_clang::print_enums()
+{
+    std::string result;
+
+    for ( const auto& type_data : type_db.get_types() | std::views::values )
+        if ( std::holds_alternative<enum_t>( type_data ) )
+            result += print_enum( std::get<enum_t>( type_data ) ) + ";\n";
+
+    return result;
+}
+
+std::string formatter_clang::print_structs()
+{
+    std::string result;
+    std::unordered_set<type_id> printed_structures;
+    std::unordered_set<type_id> printed_stack;
+
+    std::function<void( type_id )> recruse_struct;
+    recruse_struct = [&]( const type_id id )
     {
-        if ( !visited.contains( type_id ) )
-            dfs_type( type_id, false );
-    }
+        if ( printed_structures.contains( id ) )
+            return;
 
-    std::string out;
-    for ( type_id id : sorted )
-    {
-        auto result = print_type( id, true );
-        if ( !result.empty() )
-            out += result + ";\n";
-    }
+        if ( printed_stack.contains( id ) )
+            __debugbreak();
 
-    return out;
-}
+        printed_stack.insert( id );
 
-std::string formatter_clang::print_structure( structure_t& s )
-{
-    if ( s.get_settings().is_forward )
-        return "";
-
-    std::string out;
-    out += std::format( "{} {} {{", s.is_union() ? "union" : "struct", s.get_name() );
-
-    for ( const auto& field : s.get_fields() )
-    {
-        std::string identifier = field.name;
-        print_identifier( field.type_id, identifier );
-
-        if ( !field.is_bit_field )
-            out += std::format( "\n\t{};", identifier );
-        else
-            out += std::format( "\n\t{} : {};", identifier, field.bit_size );
-    }
-
-    out += "\n}";
-
-    return out;
-}
-
-std::string formatter_clang::print_enum( const enum_t& e )
-{
-    std::string out;
-    out += std::format( "enum {} {{", e.get_name() );
-
-    for ( const auto& [value, name] : e.get_members() )
-        out += std::format( "\n\t{} = {},", name, value );
-
-    out += "\n}";
-
-    return out;
-}
-
-std::string formatter_clang::print_forward_alias( const typedef_type_t& a )
-{
-    std::string out;
-
-    std::string identifier = a.alias;
-    print_identifier( a.type, identifier );
-
-    out += std::format( "typedef {}", identifier );
-
-    return out;
-}
-
-std::string formatter_clang::print_type( const type_id id, bool ignore_anonymous )
-{
-    return std::visit(
-        overloads{
-            [&]( structure_t& s )
+        auto type_data = type_db.lookup_type( id );
+        auto result_string = std::visit(
+            [&]( auto&& a ) -> std::string
             {
-                if ( ignore_anonymous && s.get_name().empty() )
-                    return std::string();
+                using T = std::decay_t<decltype( a )>;
+                if ( std::is_same_v<T, pointer_t> )
+                    return "";
 
-                return print_structure( s );
-            },
-            [&]( const enum_t& e )
-            {
-                if ( ignore_anonymous && e.get_name().empty() )
-                    return std::string();
+                auto deps = a.get_dependencies();
+                for ( auto dep : deps )
+                    recruse_struct( dep );
 
-                return print_enum( e );
-            },
-            [&]( const typedef_type_t& t )
-            {
-                return print_forward_alias( t );
-            },
-            [&]( const auto& a ) -> std::string
-            {
+                if constexpr ( std::is_same_v<T, structure_t> )
+                    if ( !a.get_name().empty() )
+                        return print_structure( a ) + ";\n";
+
                 return "";
-            } },
-        type_db.lookup_type( id ) );
+            },
+            type_data );
+
+        result += result_string;
+
+        printed_structures.insert( id );
+        printed_stack.erase( id );
+    };
+
+    for ( const auto type_id : type_db.get_types() | std::views::keys )
+        recruse_struct( type_id );
+
+    return result;
 }
 
 void formatter_clang::print_identifier( const type_id& type, std::string& identifier )
@@ -196,7 +178,7 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
                 std::string type_print;
                 print_identifier( f.type, type_print );
 
-                identifier = std::format( "{} {}{}", f.sugar, f.scope, type_print ) + identifier;
+                identifier = type_print + identifier;
             },
 
             // base
@@ -295,33 +277,82 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
         type_data );
 }
 
-bool formatter_clang::is_type_anonymous( const type_id type )
+std::string formatter_clang::print_type( const type_id id, bool ignore_anonymous )
 {
-    auto type_data = type_db.lookup_type( type );
     return std::visit(
         overloads{
-            [&]( const qualified_t& q )
+            [&]( structure_t& s )
             {
-                return is_type_anonymous( q.underlying );
-            },
-            [&]( const elaborated_t& f )
-            {
-                return is_type_anonymous( f.type );
-            },
+                if ( ignore_anonymous && s.get_name().empty() )
+                    return std::string();
 
-            [&]( const structure_t& s )
-            {
-                return s.get_name() == "";
+                return print_structure( s );
             },
             [&]( const enum_t& e )
             {
-                return e.get_name() == "";
-            },
+                if ( ignore_anonymous && e.get_name().empty() )
+                    return std::string();
 
-            []( const auto& a )
+                return print_enum( e );
+            },
+            [&]( const typedef_type_t& t )
             {
-                return false;
+                return print_forward_alias( t );
+            },
+            [&]( const auto& a ) -> std::string
+            {
+                return "";
             } },
-        type_data );
+        type_db.lookup_type( id ) );
 }
+
+std::string formatter_clang::print_structure( structure_t& s )
+{
+    if ( s.get_settings().is_forward )
+        return "";
+
+    std::string out;
+    out += std::format( "{} {} {{", s.is_union() ? "union" : "struct", s.get_name() );
+
+    for ( const auto& field : s.get_fields() )
+    {
+        std::string identifier = field.name;
+        print_identifier( field.type_id, identifier );
+
+        if ( !field.is_bit_field )
+            out += std::format( "\n\t{};", identifier );
+        else
+            out += std::format( "\n\t{} : {};", identifier, field.bit_size );
+    }
+
+    out += "\n}";
+
+    return out;
+}
+
+std::string formatter_clang::print_enum( const enum_t& e )
+{
+    std::string out;
+    out += std::format( "enum {} {{", e.get_name() );
+
+    for ( const auto& [value, name] : e.get_members() )
+        out += std::format( "\n\t{} = {},", name, value );
+
+    out += "\n}";
+
+    return out;
+}
+
+std::string formatter_clang::print_forward_alias( const typedef_type_t& a )
+{
+    std::string out;
+
+    std::string identifier = a.alias;
+    print_identifier( a.type, identifier );
+
+    out += std::format( "typedef {}", identifier );
+
+    return out;
+}
+
 } // namespace mt

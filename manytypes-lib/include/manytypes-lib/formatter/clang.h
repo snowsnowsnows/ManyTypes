@@ -23,15 +23,19 @@ public:
 
     std::string print_database();
 
-    std::string print_forward_alias( const typedef_type_t& );
-    std::string print_structure( structure_t& s );
-    std::string print_enum( const enum_t& e );
-
 private:
     type_database_t type_db;
 
-    std::string print_type( type_id id, bool ignore_anonymous = false );
+    std::string print_forwards();
+    std::string print_typedefs();
+    std::string print_enums();
+    std::string print_structs();
+
     void print_identifier( const type_id& type, std::string& identifier );
-    bool is_type_anonymous( type_id id );
+
+    std::string print_type( type_id id, bool ignore_anonymous = false );
+    std::string print_structure( structure_t& s );
+    std::string print_enum( const enum_t& e );
+    std::string print_forward_alias( const typedef_type_t& a );
 };
 } // namespace mt

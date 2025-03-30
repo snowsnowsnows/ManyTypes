@@ -22,9 +22,11 @@ bool create_file( const std::filesystem::path& path, const bool hidden = false )
             CREATE_NEW,
             ( hidden ? FILE_ATTRIBUTE_HIDDEN : 0 ) | FILE_ATTRIBUTE_NORMAL,
             nullptr ) );
+
+        return true;
     }
 
-    return true;
+    return false;
 }
 
 void plugin_run_loop()
@@ -43,7 +45,9 @@ void plugin_run_loop()
     const auto manytypes_root = run_root / "ManyTypes";
     const auto dbg_workspace = manytypes_root / norm_image_name;
     const auto dbg_workspace_root = dbg_workspace / "project.h";
-    create_file( dbg_workspace_root );
+    if ( create_file( dbg_workspace_root ) )
+        if ( std::fstream project_root( dbg_workspace_root ); project_root )
+            project_root << "#include \"../global.h\"";
 
     std::queue<std::filesystem::path> paths_to_check;
     paths_to_check.push( manytypes_root );

@@ -4,6 +4,8 @@ C/C++ type parsing library based on libclang.
 
 This project was intended to parse windows headers and phnt.h in order to generate type data which is parsable by x64dbg.
 
+**This only works with [x64dbg fork](https://github.com/notpidgey/x64dbg) for now** 
+
 ## x64dbg usage
 When starting a x64dbg debug session with the plugin enabled, ManyTypes will create a folder in the root of x64dbg called `ManyTypes/[ImageName]`.
 This folder will contain a `project.h` file. 

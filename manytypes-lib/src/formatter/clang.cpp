@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <ranges>
+#include <format>
 
 namespace mt
 {

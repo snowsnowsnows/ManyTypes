@@ -1,8 +1,9 @@
 #include "manytypes-lib/formatter/x64dbg.h"
 
 #include "manytypes-lib/util/util.h"
-#include "nlohmann/json.hpp"
 #include "manytypes-lib/exceptions.h"
+
+#include "nlohmann/json.hpp"
 
 namespace mt
 {

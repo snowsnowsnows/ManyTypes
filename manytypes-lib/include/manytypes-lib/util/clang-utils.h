@@ -67,6 +67,11 @@ public:
         return str_view;
     }
 
+    bool operator==( const char* c_str ) const
+    {
+        return str_view == c_str;
+    }
+
     operator std::string() const
     {
         return std::string( str_view );

@@ -67,6 +67,7 @@ set(manytypes-lib_SOURCES
 	cmake.toml
 	"manytypes-lib/include/manytypes-lib/db/clang-database.h"
 	"manytypes-lib/include/manytypes-lib/db/database.h"
+	"manytypes-lib/include/manytypes-lib/exceptions.h"
 	"manytypes-lib/include/manytypes-lib/formatter/clang.h"
 	"manytypes-lib/include/manytypes-lib/formatter/x64dbg.h"
 	"manytypes-lib/include/manytypes-lib/manytypes.h"

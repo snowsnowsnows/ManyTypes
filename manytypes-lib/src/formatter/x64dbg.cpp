@@ -109,10 +109,10 @@ nlohmann::json x64dbg_formatter::generate_json()
                     nlohmann::json json;
                     json["name"] = get_insert_type_name( id, "" );
                     json["members"] = nlohmann::json::array();
-                    json["bitSize"] = type_db.bit_pointer_size;
+                    json["sizeBits"] = type_db.bit_pointer_size;
 
                     nlohmann::json json_field;
-                    json_field["bitSize"] = type_db.bit_pointer_size;
+                    json_field["sizeBits"] = type_db.bit_pointer_size;
                     json_field["name"] = "ptr";
                     json_field["offset"] = 0;
 
@@ -135,7 +135,7 @@ nlohmann::json x64dbg_formatter::generate_json()
                         }
                     }
                     else
-                        json_field["type"] = lookup_type_name( p.get_elem_type() ) + "*";
+                        json_field["type"] = std::get<0>( lookup_type_name( p.get_elem_type() ) ) + "*";
 
                     json["members"].push_back( json_field );
 
@@ -146,16 +146,16 @@ nlohmann::json x64dbg_formatter::generate_json()
                     nlohmann::json json;
                     json["name"] = get_insert_type_name( id, "" );
                     json["members"] = nlohmann::json::array();
-                    json["bitSize"] = a.get_array_length() * a.get_elem_size();
+                    json["sizeBits"] = a.get_array_length() * a.get_elem_size();
 
                     nlohmann::json json_field;
-                    json_field["bitSize"] = a.get_array_length() * a.get_elem_size();
+                    json_field["sizeBits"] = a.get_array_length() * a.get_elem_size();
                     json_field["name"] = "arr";
                     json_field["offset"] = 0;
                     json_field["bitfield"] = false;
                     json_field["arrsize"] = a.get_array_length();
 
-                    json_field["type"] = lookup_type_name( a.get_elem_type() );
+                    json_field["type"] = std::get<0>( lookup_type_name( a.get_elem_type() ) );
 
                     json["members"].push_back( json_field );
 
@@ -173,7 +173,7 @@ nlohmann::json x64dbg_formatter::generate_json()
                     {
                         nlohmann::json json;
                         json["name"] = get_insert_type_name( id, t.alias );
-                        json["type"] = lookup_type_name( t.type );
+                        json["type"] = std::get<0>( lookup_type_name( t.type ) );
 
                         if ( json["name"] == json["type"] )
                             return;
@@ -185,7 +185,7 @@ nlohmann::json x64dbg_formatter::generate_json()
                 {
                     nlohmann::json json;
                     json["name"] = get_insert_type_name( id, "" );
-                    json["rettype"] = lookup_type_name( f.get_return_type() );
+                    json["rettype"] = std::get<0>( lookup_type_name( f.get_return_type() ) );
                     json["args"] = nlohmann::json::array();
 
                     switch ( f.get_call_conv() )
@@ -207,7 +207,7 @@ nlohmann::json x64dbg_formatter::generate_json()
                     for ( auto& arg : f.get_args() )
                     {
                         nlohmann::json json_arg;
-                        json_arg["type"] = lookup_type_name( arg );
+                        json_arg["type"] = std::get<0>( lookup_type_name( arg ) );
                         json_arg["name"] = "";
 
                         json["args"].push_back( json_arg );
@@ -222,17 +222,27 @@ nlohmann::json x64dbg_formatter::generate_json()
                     json["members"] = nlohmann::json::array();
 
                     auto& settings = s.get_settings();
-                    json["bitSize"] = settings.size;
+                    json["sizeBits"] = settings.size;
                     json["isUnion"] = settings.is_union;
 
                     for ( const auto& field : s.get_fields() )
                     {
+                        auto [type_name, underlying] = lookup_type_name( field.type_id );
+
                         nlohmann::json json_field;
-                        json_field["name"] = field.name.empty() && !field.is_bit_field ? lookup_type_name( field.type_id ) : field.name;
-                        json_field["bitSize"] = field.bit_size;
+                        json_field["name"] = field.name.empty() && !field.is_bit_field ? type_name : field.name;
+                        json_field["sizeBits"] = field.bit_size;
                         json_field["bitOffset"] = field.bit_offset;
                         json_field["bitfield"] = field.is_bit_field;
-                        json_field["type"] = lookup_type_name( field.type_id );
+
+                        if ( auto underlying_data = type_db.lookup_type( underlying ); std::holds_alternative<array_t>( underlying_data ) )
+                        {
+                            auto underlying_array = std::get<array_t>( underlying_data );
+                            json_field["arrsize"] = underlying_array.get_array_length();
+                            json_field["type"] = std::get<0>( lookup_type_name( underlying_array.get_elem_type() ) );
+                        }
+                        else
+                            json_field["type"] = type_name;
 
                         json["members"].push_back( json_field );
                     }
@@ -244,7 +254,7 @@ nlohmann::json x64dbg_formatter::generate_json()
                     nlohmann::json json;
                     json["name"] = get_insert_type_name( id, e.get_name() );
                     json["members"] = nlohmann::json::array();
-                    json["bitSize"] = e.get_settings().size;
+                    json["sizeBits"] = e.get_settings().size;
                     json["isFlags"] = true;
 
                     for ( const auto& [val, name] : e.get_members() )
@@ -284,7 +294,7 @@ std::string x64dbg_formatter::get_insert_type_name( const type_id id, const std:
     return name;
 }
 
-std::string x64dbg_formatter::lookup_type_name( const type_id id )
+std::pair<std::string, type_id> x64dbg_formatter::lookup_type_name( const type_id id )
 {
     auto [ptr_depth, underlying] = unfold_pointer_path( id );
     while ( elaborate_chain.contains( underlying ) )
@@ -293,7 +303,7 @@ std::string x64dbg_formatter::lookup_type_name( const type_id id )
     if ( !out_type_names.contains( underlying ) )
         throw X64DbgUnknownTypeException( "type id must exist in the output type names" );
 
-    return out_type_names.at( underlying ) + std::string( ptr_depth, '*' );
+    return { out_type_names.at( underlying ) + std::string( ptr_depth, '*' ), underlying };
 }
 
 std::pair<uint32_t, type_id> x64dbg_formatter::unfold_pointer_path( const type_id id )

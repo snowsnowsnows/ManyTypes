@@ -31,7 +31,7 @@ private:
     nlohmann::json json_db;
 
     std::string get_insert_type_name( type_id id, const std::string& name );
-    std::string lookup_type_name( type_id id );
+    std::pair<std::string, type_id> lookup_type_name( type_id id );
 
     std::pair<uint32_t, type_id> unfold_pointer_path( type_id id );
 };

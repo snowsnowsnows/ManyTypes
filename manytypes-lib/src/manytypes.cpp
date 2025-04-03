@@ -462,20 +462,29 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                         while ( true )
                         {
                             type_id_data& data = client_data->type_db.lookup_type( true_underlying );
-                            if ( !std::holds_alternative<elaborated_t>( data ) )
+                            if ( !std::holds_alternative<elaborated_t>( data ) && !std::holds_alternative<array_t>( data ) )
                                 break;
 
-                            auto& elab = std::get<elaborated_t>( data );
-                            if ( !elab.is_clear() )
-                                break;
-
-                            true_underlying = std::get<elaborated_t>( data ).type;
+                            if ( std::holds_alternative<elaborated_t>( data ) )
+                            {
+                                auto& elab = std::get<elaborated_t>( data );
+                                true_underlying = elab.type;
+                            }
+                            else
+                            {
+                                auto& array = std::get<array_t>( data );
+                                true_underlying = array.get_elem_type();
+                            }
                         }
 
                         auto& back = fields.back();
-                        if ( back.bit_offset == bit_offset && back.type_id == true_underlying )
+                        if ( back.bit_offset == bit_offset && back.name.empty() &&
+                            back.type_id == true_underlying )
                         {
+                            // anonymous field
                             back.name = clang_spelling_str( cursor );
+                            back.type_id = field_type_id;
+
                             revised_field = true;
                         }
                     }
@@ -492,9 +501,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                             } );
                     }
                 },
-                [&]( auto&& )
-                {
-                },
+                [&]( auto&& ) {},
             },
             type_data );
         break;

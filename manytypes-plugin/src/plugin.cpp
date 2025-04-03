@@ -91,7 +91,10 @@ void plugin_run_loop()
         {
             try
             {
-                auto opt_db = mt::parse_root_source( src_root );
+                BOOL is_bit32;
+                IsWow64Process( DbgGetProcessHandle(), &is_bit32 );
+
+                auto opt_db = mt::parse_root_source( src_root, is_bit32 );
                 if ( opt_db )
                 {
                     auto& db = *opt_db;

@@ -23,20 +23,9 @@ jobs:
           cmake --build build64 --config Release --target manytypes-plugin
           copy build64\Release\*.dp64 package\x64\plugins\
 
-      - name: Build (x32)
-        run: |
-          mkdir package\x32\plugins\
-          mkdir package\x32\ManyTypes
-          cmake -B build32 -A Win32
-          cmake --build build32 --config Release --target manytypes-plugin
-          copy build32\Release\*.dp32 package\x32\plugins\
-
       - name: Copy release artifacts
         run: |
-          Copy-Item -Path .github/release-artifacts/* -Destination package/x32/ManyTypes -Recurse -Force
           Copy-Item -Path .github/release-artifacts/* -Destination package/x64/ManyTypes -Recurse -Force
-
-          Copy-Item extern/bin/libclang.dll -Destination package/x32/plugins -Force
           Copy-Item extern/bin/libclang.dll -Destination package/x64/plugins -Force
         shell: pwsh
 

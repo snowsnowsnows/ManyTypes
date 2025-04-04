@@ -110,10 +110,10 @@ nlohmann::json x64dbg_formatter::generate_json()
                     nlohmann::json json;
                     json["name"] = get_insert_type_name( id, "" );
                     json["members"] = nlohmann::json::array();
-                    json["sizeBits"] = type_db.bit_pointer_size;
+                    json["sizeBits"] = p.get_ptr_bit_size(  );
 
                     nlohmann::json json_field;
-                    json_field["sizeBits"] = type_db.bit_pointer_size;
+                    json_field["sizeBits"] = p.get_ptr_bit_size(  );
                     json_field["name"] = "ptr";
                     json_field["offset"] = 0;
 

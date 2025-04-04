@@ -18,6 +18,7 @@ std::string formatter_clang::print_database()
 
     return result;
 }
+
 std::string formatter_clang::print_forwards()
 {
     std::string result;
@@ -36,7 +37,8 @@ std::string formatter_clang::print_forwards()
                     if ( !e.get_name().empty() )
                         result += std::format( "enum {};\n", e.get_name() );
                 },
-                [&result]( auto&& ) {} },
+                [&result]( auto&& ) {
+                } },
             type_id_data );
     }
 
@@ -313,7 +315,10 @@ std::string formatter_clang::print_structure( structure_t& s )
         return "";
 
     std::string out;
-    out += std::format( "{} {} {{", s.is_union() ? "union" : "struct", s.get_name() );
+    out += std::format( "{} alignas({}) {} {{",
+        s.is_union() ? "union" : "struct",
+        s.get_settings().align / 8,
+        s.get_name() );
 
     for ( const auto& field : s.get_fields() )
     {

@@ -34,9 +34,9 @@ jobs:
       - name: Copy release artifacts
         run: |
           Copy-Item -Path .github/release-artifacts/* -Destination package/x64/ManyTypes -Recurse -Force
-          Copy-Item extern/bin/libclang.dll -Destination package/x64/plugins -Force
+          Copy-Item extern/bin/x64/libclang.dll -Destination package/x64/plugins -Force
           Copy-Item -Path .github/release-artifacts/* -Destination package/x32/ManyTypes -Recurse -Force
-          Copy-Item extern/bin/libclang32.dll -Destination package/x32/plugins -Force
+          Copy-Item extern/bin/x32/libclang.dll -Destination package/x32/plugins -Force
         shell: pwsh
 
       - uses: actions/upload-artifact@v4

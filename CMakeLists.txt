@@ -58,15 +58,15 @@ target_include_directories(libclang INTERFACE
 	"extern/include"
 )
 
-if(CMAKE_SIZEOF_VOID_P EQUAL 4) # x86
+if(CMAKE_SIZEOF_VOID_P EQUAL 4) # x32
 	target_link_libraries(libclang INTERFACE
-		"${CMAKE_CURRENT_SOURCE_DIR}/extern/lib/libclang32.lib"
+		"${CMAKE_CURRENT_SOURCE_DIR}/extern/lib/x32/libclang.lib"
 	)
 endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8) # x64
 	target_link_libraries(libclang INTERFACE
-		"${CMAKE_CURRENT_SOURCE_DIR}/extern/lib/libclang.lib"
+		"${CMAKE_CURRENT_SOURCE_DIR}/extern/lib/x64/libclang.lib"
 	)
 endif()
 

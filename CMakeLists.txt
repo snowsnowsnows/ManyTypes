@@ -58,9 +58,17 @@ target_include_directories(libclang INTERFACE
 	"extern/include"
 )
 
-target_link_libraries(libclang INTERFACE
-	"${CMAKE_CURRENT_SOURCE_DIR}/extern/lib/libclang.lib"
-)
+if(CMAKE_SIZEOF_VOID_P EQUAL 4) # x86
+	target_link_libraries(libclang INTERFACE
+		"${CMAKE_CURRENT_SOURCE_DIR}/extern/lib/libclang32.lib"
+	)
+endif()
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 8) # x64
+	target_link_libraries(libclang INTERFACE
+		"${CMAKE_CURRENT_SOURCE_DIR}/extern/lib/libclang.lib"
+	)
+endif()
 
 # Target: manytypes-lib
 set(manytypes-lib_SOURCES

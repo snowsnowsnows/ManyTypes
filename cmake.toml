@@ -10,10 +10,15 @@ include-before = [
 url = "https://sourceforge.net/projects/x64dbg/files/snapshots/snapshot_2025-03-15_15-57.zip"
 include-after = ["cmake/x64dbg.cmake"]
 
+[conditions]
+x86 = "CMAKE_SIZEOF_VOID_P EQUAL 4"
+x64 = "CMAKE_SIZEOF_VOID_P EQUAL 8"
+
 [target.libclang]
 type = "interface"
 include-directories = ["extern/include"]
-link-libraries = ["extern/lib/libclang.lib"]
+x86.link-libraries = ["extern/lib/libclang32.lib"]
+x64.link-libraries = ["extern/lib/libclang.lib"]
 
 [target.manytypes-lib]
 type = "library"

@@ -121,22 +121,22 @@ public:
 class InvalidParentDeclarationException : public ParserException
 {
 public:
-    explicit InvalidParentDeclarationException(const std::string& message)
-        : ParserException("InvalidParentDeclarationException: " + message) {}
+    explicit InvalidParentDeclarationException(const std::string& message, const std::string& debug_line)
+        : ParserException("InvalidParentDeclarationException: " + message + " : " + debug_line) {}
 };
 
 class InvalidFieldException : public ParserException
 {
 public:
-    explicit InvalidFieldException(const std::string& message)
-        : ParserException("InvalidFieldException: " + message) {}
+    explicit InvalidFieldException(const std::string& message, const std::string& debug_line)
+        : ParserException("InvalidFieldException: " + message + " : " + debug_line) {}
 };
 
 class UnsupportedScopeException : public ParserException
 {
 public:
-    explicit UnsupportedScopeException(const std::string& message)
-        : ParserException("UnsupportedScopeException: " + message) {}
+    explicit UnsupportedScopeException(const std::string& message, const std::string& debug_line)
+        : ParserException("UnsupportedScopeException: " + message + " : " + debug_line) {}
 };
 
 } // namespace mt

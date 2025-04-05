@@ -106,8 +106,8 @@ void plugin_run_loop()
                         json_db.close();
 
                         auto types_path = relative( target_db, std::filesystem::current_path() ).string();
-                        DbgCmdExec( std::format( "ClearTypes \"{}\"", types_path.c_str() ).c_str() );
-                        DbgCmdExec( std::format( "LoadTypes \"{}\"", types_path.c_str() ).c_str() );
+                        DbgCmdExec( std::format( "ClearTypes \"{}\"", types_path ).c_str() );
+                        DbgCmdExec( std::format( "LoadTypes \"{}\"", types_path ).c_str() );
 
                         dprintf( "updated json db %s\n", types_path.c_str() );
                     }
@@ -128,7 +128,7 @@ void plugin_run_loop()
         }
         else
         {
-            dprintf( "aborting header parse, unable to write %s\n", src_root.c_str() );
+            dprintf( "aborting header parse, unable to write %s\n", src_root.string().c_str() );
         }
     }
 }

@@ -40,7 +40,7 @@ bool is_forward_declaration( const CXCursor& cursor )
     return !clang_equalCursors( cursor, definition );
 }
 
-void debug_print_cursor( const CXCursor& cursor )
+std::string debug_print_cursor( const CXCursor& cursor )
 {
     const CXSourceLocation location = clang_getCursorLocation( cursor );
 
@@ -53,11 +53,11 @@ void debug_print_cursor( const CXCursor& cursor )
         CXString file_name_str = clang_getFileName( file );
         std::string filename = clang_getCString( file_name_str );
 
-        std::cout << filename << ":" << line << ":" << column << ":" << std::endl;
-        std::cout.flush();
-
         clang_disposeString( file_name_str );
+        return std::format("{}:{}:{}", filename, line, column);
     }
+
+    return "";
 }
 
 type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
@@ -309,8 +309,6 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
             client_data->clang_db.save_type_id( cursor_type, decl_type_id );
         }
 
-        // debug_print_cursor( cursor );
-
         const auto parent_cursor = clang_getCursorSemanticParent( cursor );
         if ( ( clang_Cursor_isAnonymousRecordDecl( cursor ) || clang_Cursor_isAnonymous( cursor ) ) && !clang_Cursor_isNull( parent_cursor ) )
         {
@@ -341,9 +339,9 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                                 .type_id = decl_type_id,
                             } );
                     },
-                    []( auto&& )
+                    [&]( auto&& )
                     {
-                        throw std::runtime_error( "unexpected exception occurred" );
+                        throw InvalidParentDeclarationException("unexpected parent for anonymous type", debug_print_cursor( cursor ));
                     } },
                 client_data->type_db.lookup_type( client_data->clang_db.get_type_id( parent_type ) ) );
         }
@@ -397,7 +395,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
     {
         const CXCursorKind parent_kind = clang_getCursorKind( parent );
         if ( parent_kind != CXCursor_EnumDecl )
-            throw InvalidParentDeclarationException( "parent is not enum declaration" );
+            throw InvalidParentDeclarationException( "parent is not enum declaration", debug_print_cursor( cursor ) );
 
         const CXType parent_type = clang_getCursorType( parent );
         enum_t& em = std::get<enum_t>(
@@ -412,7 +410,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
     {
         const CXCursorKind parent_kind = clang_getCursorKind( parent );
         if ( parent_kind != CXCursor_ClassDecl && parent_kind != CXCursor_StructDecl && parent_kind != CXCursor_UnionDecl )
-            throw InvalidParentDeclarationException( "parent is not valid structure declaration" );
+            throw InvalidParentDeclarationException( "parent is not valid structure declaration", debug_print_cursor( cursor ) );
 
         auto parent_type = clang_getCursorType( parent );
         auto underlying_type = clang_getCursorType( cursor );
@@ -431,23 +429,23 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                         if ( field_size == CXTypeLayoutError_Incomplete )
                         {
                             if ( underlying_type.kind != CXType_IncompleteArray && ( underlying_type.kind != CXType_ConstantArray || clang_getArraySize( underlying_type ) != 0 ) )
-                                throw InvalidFieldException( "incomplete layout must be of incomplete array type" );
+                                throw InvalidFieldException( "incomplete layout must be of incomplete array type", debug_print_cursor( cursor ) );
 
                             bit_width = 0;
                         }
                         else if ( field_size < 0 )
-                            throw InvalidFieldException( "bit width must not be value dependent" );
+                            throw InvalidFieldException( "bit width must not be value dependent", debug_print_cursor( cursor ) );
                     }
                     else
                     {
                         bit_width = clang_getFieldDeclBitWidth( cursor );
                         if ( bit_width < 0 )
-                            throw InvalidFieldException( "bit width must not be value dependent" );
+                            throw InvalidFieldException( "bit width must not be value dependent", debug_print_cursor( cursor ) );
                     }
 
                     const auto bit_offset = clang_Cursor_getOffsetOfField( cursor );
                     if ( bit_offset == CXTypeLayoutError_Invalid || bit_offset == CXTypeLayoutError_Incomplete || bit_offset == CXTypeLayoutError_Dependent || bit_offset == CXTypeLayoutError_InvalidFieldName )
-                        throw InvalidFieldException( "field offset is invalid" );
+                        throw InvalidFieldException( "field offset is invalid", debug_print_cursor( cursor ) );
 
                     const type_id field_type_id = unwind_complex_type( client_data, underlying_type );
                     bool revised_field = false;
@@ -546,7 +544,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         case CXCursor_TranslationUnit:
             break;
         default:
-            throw InvalidParentDeclarationException( "typedef must be contained within a valid structure or class" );
+            throw InvalidParentDeclarationException( "typedef must be contained within a valid structure or class", debug_print_cursor( cursor ) );
         }
     }
     case CXCursor_ClassTemplate:

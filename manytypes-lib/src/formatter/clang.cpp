@@ -12,8 +12,9 @@ std::string formatter_clang::print_database()
 {
     std::string result;
     result += print_forwards();
-    result += print_typedefs();
     result += print_enums();
+    result += print_typedefs();
+    result += "#define ALIGN(x) __attribute__((packed, aligned(x)))\n";
     result += print_structs();
 
     return result;
@@ -32,12 +33,8 @@ std::string formatter_clang::print_forwards()
                     if ( !s.get_name().empty() )
                         result += std::format( "{} {};\n", s.is_union() ? "union" : "struct", s.get_name() );
                 },
-                [&result]( enum_t& e )
+                [&result]( auto&& )
                 {
-                    if ( !e.get_name().empty() )
-                        result += std::format( "enum {};\n", e.get_name() );
-                },
-                [&result]( auto&& ) {
                 } },
             type_id_data );
     }
@@ -315,7 +312,7 @@ std::string formatter_clang::print_structure( structure_t& s )
         return "";
 
     std::string out;
-    out += std::format( "{} alignas({}) {} {{",
+    out += std::format( "{} ALIGN({}) {} \n{{",
         s.is_union() ? "union" : "struct",
         s.get_settings().align / 8,
         s.get_name() );
@@ -326,9 +323,9 @@ std::string formatter_clang::print_structure( structure_t& s )
         print_identifier( field.type_id, identifier );
 
         if ( !field.is_bit_field )
-            out += std::format( "\n\t{};", identifier );
+            out += std::format( "\n{};", identifier );
         else
-            out += std::format( "\n\t{} : {};", identifier, field.bit_size );
+            out += std::format( "\n{} : {};", identifier, field.bit_size );
     }
 
     out += "\n}";
@@ -339,7 +336,11 @@ std::string formatter_clang::print_structure( structure_t& s )
 std::string formatter_clang::print_enum( const enum_t& e )
 {
     std::string out;
-    out += std::format( "enum {} {{", e.get_name() );
+
+    std::string identifier;
+    print_identifier( e.get_settings().underlying, identifier );
+
+    out += std::format( "enum {} : {} {{", e.get_name(), identifier );
 
     for ( const auto& [value, name] : e.get_members() )
         out += std::format( "\n\t{} = {},", name, value );

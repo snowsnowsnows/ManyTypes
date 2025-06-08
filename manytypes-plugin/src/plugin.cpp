@@ -3,10 +3,17 @@
 #include <filesystem>
 #include <queue>
 #include <string>
+#include <mutex>
 
 #include "manytypes-lib/manytypes.h"
+#include "manytypes-lib/formatter/clang.h"
+#include "manytypes-lib/util/util.h"
 
-std::atomic<const char*> curr_image_name;
+std::atomic<const char*> g_curr_image_name;
+
+std::mutex g_typedb_mutex;
+std::optional<mt::type_database_t> g_typedb = std::nullopt;
+
 std::unordered_map<std::string, std::filesystem::file_time_type> last_save_time;
 
 bool create_file( const std::filesystem::path& path, const bool hidden = false )
@@ -31,7 +38,7 @@ bool create_file( const std::filesystem::path& path, const bool hidden = false )
 
 void plugin_run_loop()
 {
-    const char* curr_image = curr_image_name;
+    const char* curr_image = g_curr_image_name;
     if ( curr_image == nullptr )
         return;
 
@@ -43,11 +50,20 @@ void plugin_run_loop()
     const auto run_root = std::filesystem::current_path();
 
     const auto manytypes_root = run_root / "ManyTypes";
+    const auto manytypes_artifacts = manytypes_root / ".artifacts";
+
     const auto dbg_workspace = manytypes_root / norm_image_name;
     const auto dbg_workspace_root = dbg_workspace / "project.h";
+
     if ( create_file( dbg_workspace_root ) )
+    {
         if ( std::fstream project_root( dbg_workspace_root ); project_root )
-            project_root << "#include \"../global.h\"";
+        {
+            if ( exists( manytypes_root / "global.h" ) )
+                project_root << "#include \"../global.h\"";
+        }
+        // maybe error handle if the creation fails
+    }
 
     std::queue<std::filesystem::path> paths_to_check;
     paths_to_check.push( manytypes_root );
@@ -69,90 +85,159 @@ void plugin_run_loop()
         }
     }
 
-    if ( must_refresh )
+    if ( !must_refresh )
+        return;
+
+    const std::filesystem::path global = manytypes_root / "global.h";
+    create_file( global );
+
+    const std::filesystem::path src_root = manytypes_artifacts / "source.cpp";
+    create_file( src_root );
+
+    // write dummy include
+    bool abort_parse = false;
     {
-        const std::filesystem::path global = manytypes_root / "global.h";
-        create_file( global );
+        std::ofstream src_file( src_root, std::ios::trunc );
+        if ( src_file )
+            src_file << "#include \"../" << norm_image_name << "/project.h\"";
+        else
+            abort_parse = true;
+    }
 
-        const std::filesystem::path src_root = manytypes_root / "source.cpp";
-        create_file( src_root );
+    if ( abort_parse )
+    {
+        dprintf( "aborting header parse, unable to write %s\n", src_root.string().c_str() );
+        return;
+    }
 
-        // write dummy include
-        bool abort_parse = false;
+    try
+    {
+        BOOL is_bit32;
+        IsWow64Process( DbgGetProcessHandle(), &is_bit32 );
+
+        std::lock_guard typedb_lock( g_typedb_mutex );
+
+        auto typedb = mt::parse_root_source( src_root, is_bit32 );
+        if ( typedb )
         {
-            std::ofstream src_file( src_root, std::ios::trunc );
-            if ( src_file )
-                src_file << "#include \"" << norm_image_name << "/project.h\"";
-            else
-                abort_parse = true;
-        }
+            auto& db = *typedb;
+            g_typedb = typedb;
 
-        if ( !abort_parse )
-        {
-            try
+            auto target_db = manytypes_artifacts / ( norm_image_name + ".json" );
+            if ( std::ofstream json_db( target_db, std::ios::trunc ); json_db )
             {
-                BOOL is_bit32;
-                IsWow64Process( DbgGetProcessHandle(), &is_bit32 );
+                json_db << create_x64dbg_database( db );
+                json_db.close();
 
-                auto opt_db = mt::parse_root_source( src_root, is_bit32 );
-                if ( opt_db )
-                {
-                    auto& db = *opt_db;
+                auto types_path = relative( target_db, std::filesystem::current_path() ).string();
+                DbgCmdExec( std::format( "ClearTypes \"{}\"", types_path ).c_str() );
+                DbgCmdExec( std::format( "LoadTypes \"{}\"", types_path ).c_str() );
 
-                    auto target_db = dbg_workspace / ( norm_image_name + ".json" );
-                    if ( std::ofstream json_db( target_db, std::ios::trunc ); json_db )
-                    {
-                        json_db << mt::create_x64dbg_database( db );
-                        json_db.close();
-
-                        auto types_path = relative( target_db, std::filesystem::current_path() ).string();
-                        DbgCmdExec( std::format( "ClearTypes \"{}\"", types_path ).c_str() );
-                        DbgCmdExec( std::format( "LoadTypes \"{}\"", types_path ).c_str() );
-
-                        dprintf( "updated json db %s\n", types_path.c_str() );
-                    }
-                    else
-                    {
-                        dprintf( "failed to update json db %s\n", target_db.string().c_str() );
-                    }
-                }
-                else
-                {
-                    dprintf( "unable to parse source tree\n" );
-                }
+                dprintf( "updated json db %s\n", types_path.c_str() );
             }
-            catch ( mt::Exception& e )
+            else
             {
-                dprintf( "exception occurred while parsing header %s\n", e.what() );
+                dprintf( "failed to update json db %s\n", target_db.string().c_str() );
             }
         }
         else
         {
-            dprintf( "aborting header parse, unable to write %s\n", src_root.string().c_str() );
+            dprintf( "unable to parse source tree\n" );
         }
+    }
+    catch ( mt::Exception& e )
+    {
+        dprintf( "exception occurred while parsing header %s\n", e.what() );
     }
 }
 
 void set_workspace_target( const char* image_name )
 {
-    curr_image_name = image_name;
+    g_curr_image_name = image_name;
+}
+
+void plugin_menu_select( const int entry )
+{
+    switch ( entry )
+    {
+    case 0:
+        const auto manytypes_root = std::filesystem::current_path() / "ManyTypes";
+        const auto target_path_cstr = reinterpret_cast<LPCSTR>( manytypes_root.u8string().c_str() );
+
+        ShellExecuteA( nullptr, "open", "explorer.exe", target_path_cstr, nullptr, SW_SHOWNORMAL );
+        break;
+    }
+}
+
+#include <functional>
+
+bool plugin_handle_pt( int argc, char** t )
+{
+    if ( argc < 2 )
+    {
+        dputs( "Usage: pt typename" );
+        return false;
+    }
+
+    std::lock_guard typedb_lock( g_typedb_mutex );
+
+    auto& typedb = *g_typedb;
+    auto types = typedb.get_types();
+
+    bool success = false;
+    for ( auto& [id, data] : types )
+    {
+        try
+        {
+            bool found_type = false;
+            try
+            {
+                auto type_name = typedb.get_type_print( id );
+                if ( type_name == t[1] )
+                {
+                    found_type = true;
+                }
+            }
+            catch ( ... )
+            {
+            }
+
+            if ( found_type )
+            {
+                mt::formatter_clang fmt( typedb, true, "    " );
+                dprintf( "\n%s\n", fmt.print_type( id ).c_str() );
+
+                success = true;
+            }
+        }
+        catch ( ... )
+        {
+            dprintf( "err: exception while printing type " );
+        }
+
+        if ( success )
+            break;
+    }
+
+    return success;
 }
 
 // Initialize your plugin data here.
 bool plugin_init( PLUG_INITSTRUCT* initStruct )
 {
-    dprintf( "plugin_init(pluginHandle: %d)\n", pluginHandle );
     return true;
 }
 
 // Deinitialize your plugin data here.
 void plugin_stop()
 {
-    dprintf( "plugin_stop(pluginHandle: %d)\n", pluginHandle );
 }
 
 // Do GUI/Menu related things here.
 void plugin_setup()
 {
-    dprintf( "plugin_setup(pluginHandle: %d)\n", pluginHandle );
+    _plugin_menuaddentry( hMenu, OPEN_EXPLORER_MANYTYPES, "Open in Explorer" );
+    _plugin_registercommand( pluginHandle, "pt", plugin_handle_pt, true );
+
+    //_plugin_menuaddentry(hMenu, OPEN_VSCODE_MANYTYPES, "Open ManyTypes VSCode");
 }

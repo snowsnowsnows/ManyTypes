@@ -41,6 +41,13 @@ public:
         : DatabaseException("TypeAlreadyExistsException: " + message) {}
 };
 
+class TypeNotPrintable : public DatabaseException
+{
+public:
+    explicit TypeNotPrintable(const std::string& message)
+        : DatabaseException("TypeNotPrintable: " + message) {}
+};
+
 class FormatterException : public Exception
 {
 public:

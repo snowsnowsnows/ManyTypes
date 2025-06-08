@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "manytypes-lib/types/models/named_sized.h"
 

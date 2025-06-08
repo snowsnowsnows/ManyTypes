@@ -11,6 +11,6 @@
 namespace mt
 {
 std::optional<type_database_t> parse_root_source( const std::filesystem::path& src_path, bool bit32 = false );
-std::string create_header( const type_database_t& db );
-std::string create_x64dbg_database( const type_database_t& db );
+std::string create_header( type_database_t& db );
+std::string create_x64dbg_database( type_database_t& db );
 } // namespace mt

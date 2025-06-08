@@ -32,6 +32,11 @@ public:
 
     bool add_field( const base_field_t& field );
 
+    [[nodiscard]] const std::vector<base_field_t>& get_fields() const
+    {
+        return s_fields;
+    }
+
     [[nodiscard]] std::vector<base_field_t>& get_fields()
     {
         return s_fields;

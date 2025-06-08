@@ -33,9 +33,7 @@ std::string formatter_clang::print_forwards()
                     if ( !s.get_name().empty() )
                         result += std::format( "{} {};\n", s.is_union() ? "union" : "struct", s.get_name() );
                 },
-                [&result]( auto&& )
-                {
-                } },
+                [&result]( auto&& ) {} },
             type_id_data );
     }
 
@@ -151,7 +149,7 @@ std::string formatter_clang::print_structs()
     return result;
 }
 
-void formatter_clang::print_identifier( const type_id& type, std::string& identifier )
+void formatter_clang::print_identifier( const type_id& type, std::string& identifier, uint8_t indent = 0 )
 {
     auto type_data = type_db.lookup_type( type );
     std::visit(
@@ -159,7 +157,7 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
             [&]( const qualified_t& q )
             {
                 std::string type_print;
-                print_identifier( q.underlying, type_print );
+                print_identifier( q.underlying, type_print, indent );
 
                 identifier = type_print + identifier;
 
@@ -176,7 +174,7 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
             {
                 // add some sort of check to assert that this should be a basic type
                 std::string type_print;
-                print_identifier( f.type, type_print );
+                print_identifier( f.type, type_print, indent );
 
                 identifier = type_print + identifier;
             },
@@ -193,16 +191,28 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
             [&]( const structure_t& s )
             {
                 if ( s.get_name().empty() )
-                    identifier = print_type( type ) + " " + identifier;
+                {
+                    std::string body = print_type( type, indent );
+                    if ( identifier.empty() )
+                        identifier = std::move( body );
+                    else
+                        identifier = std::move( body ) + ' ' + identifier;
+                }
                 else
-                    identifier = s.get_name() + " " + identifier;
+                    identifier = s.get_name() + ' ' + identifier;
             },
             [&]( const enum_t& e )
             {
                 if ( e.get_name().empty() )
-                    identifier = print_type( type ) + " " + identifier;
+                {
+                    std::string body = print_type( type, indent );
+                    if ( identifier.empty() )
+                        identifier = std::move( body );
+                    else
+                        identifier = std::move( body ) + ' ' + identifier;
+                }
                 else
-                    identifier = e.get_name() + " " + identifier;
+                    identifier = e.get_name() + ' ' + identifier;
             },
 
             // complex types
@@ -225,7 +235,7 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
                 }
 
                 identifier += ")";
-                print_identifier( f.get_return_type(), identifier );
+                print_identifier( f.get_return_type(), identifier, indent );
             },
             [&]( const pointer_t& p )
             {
@@ -256,7 +266,7 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
                 else
                     identifier = "*" + ptr_name + identifier;
 
-                print_identifier( p.get_elem_type(), identifier );
+                print_identifier( p.get_elem_type(), identifier, indent );
             },
             [&]( const array_t& arr )
             {
@@ -268,7 +278,7 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
                 else
                     identifier += std::format( "[]" );
 
-                print_identifier( arr.get_elem_type(), identifier );
+                print_identifier( arr.get_elem_type(), identifier, indent );
             },
             []( const auto& a )
             {
@@ -277,7 +287,22 @@ void formatter_clang::print_identifier( const type_id& type, std::string& identi
         type_data );
 }
 
-std::string formatter_clang::print_type( const type_id id, bool ignore_anonymous )
+std::string formatter_clang::create_indents( const uint8_t indents )
+{
+    std::string result;
+    for ( int i = 0; i < indents; i++ )
+        result += tab_str;
+
+    return result;
+}
+
+void rtrim( std::string& s )
+{
+    while ( !s.empty() && ( s.back() == ' ' || s.back() == '\t' ) )
+        s.pop_back();
+}
+
+std::string formatter_clang::print_type( const type_id id, uint8_t indent, bool ignore_anonymous )
 {
     return std::visit(
         overloads{
@@ -286,18 +311,18 @@ std::string formatter_clang::print_type( const type_id id, bool ignore_anonymous
                 if ( ignore_anonymous && s.get_name().empty() )
                     return std::string();
 
-                return print_structure( s );
+                return print_structure( s, indent );
             },
             [&]( const enum_t& e )
             {
                 if ( ignore_anonymous && e.get_name().empty() )
                     return std::string();
 
-                return print_enum( e );
+                return print_enum( e, indent );
             },
             [&]( const typedef_type_t& t )
             {
-                return print_forward_alias( t );
+                return print_forward_alias( t, indent );
             },
             [&]( const auto& a ) -> std::string
             {
@@ -306,60 +331,80 @@ std::string formatter_clang::print_type( const type_id id, bool ignore_anonymous
         type_db.lookup_type( id ) );
 }
 
-std::string formatter_clang::print_structure( structure_t& s )
+std::string formatter_clang::print_structure( structure_t& s, uint8_t indent )
 {
     if ( s.get_settings().is_forward )
         return "";
 
+    const auto base = create_indents( indent );
+    const auto inner = create_indents( indent + 1 );
+
     std::string out;
-    out += std::format( "{} ALIGN({}) {} \n{{",
+    out += std::format( "{}{} ALIGN({}) {} \n{}{{\n",
+        base,
         s.is_union() ? "union" : "struct",
         s.get_settings().align / 8,
-        s.get_name() );
+        s.get_name(),
+        base );
 
     for ( const auto& field : s.get_fields() )
     {
         std::string identifier = field.name;
-        print_identifier( field.type_id, identifier );
+        print_identifier(field.type_id, identifier, indent + 1);
 
-        if ( !field.is_bit_field )
-            out += std::format( "\n{};", identifier );
-        else
-            out += std::format( "\n{} : {};", identifier, field.bit_size );
+        const bool multiline = identifier.find('\n') != std::string::npos;
+
+        if (field.is_bit_field)
+        {
+            out += std::format("{}{} : {};\n", inner, identifier, field.bit_size);
+            continue;
+        }
+
+        if (!multiline)
+        {
+            if (include_offsets)
+                out += std::format("{}/*[{:#x}]*/ {}\n", inner, field.bit_offset / 8, identifier);
+            else
+                out += std::format("{}{};\n", inner, identifier);
+
+            continue;
+        }
+
+        if (include_offsets)
+            out += std::format("{}/*[{:#x}]*/\n", inner, field.bit_offset / 8);
+
+        out += identifier + ";\n";
     }
 
-    out += "\n}";
-
+    rtrim( out );
+    out += base + "}";
     return out;
 }
 
-std::string formatter_clang::print_enum( const enum_t& e )
+std::string formatter_clang::print_enum( const enum_t& e, uint8_t indent )
 {
     std::string out;
+    const auto base = create_indents( indent );
 
-    std::string identifier;
-    print_identifier( e.get_settings().underlying, identifier );
+    std::string underlying;
+    print_identifier( e.get_settings().underlying, underlying );
 
-    out += std::format( "enum {} : {} {{", e.get_name(), identifier );
+    out += std::format( "{}enum {} : {} {{", base, e.get_name(), underlying );
 
     for ( const auto& [value, name] : e.get_members() )
-        out += std::format( "\n\t{} = {},", name, value );
+        out += std::format( "\n{}{} = {},", create_indents( indent + 1 ), name, value );
 
-    out += "\n}";
-
+    rtrim( out );
+    out += "\n" + base + "}";
     return out;
 }
 
-std::string formatter_clang::print_forward_alias( const typedef_type_t& a )
+std::string formatter_clang::print_forward_alias( const typedef_type_t& a, uint8_t indent )
 {
-    std::string out;
-
     std::string identifier = a.alias;
-    print_identifier( a.type, identifier );
+    print_identifier( a.type, identifier, indent );
 
-    out += std::format( "typedef {}", identifier );
-
-    return out;
+    return std::format( "{}typedef {}", create_indents( indent ), identifier );
 }
 
 } // namespace mt

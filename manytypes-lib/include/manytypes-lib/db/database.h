@@ -46,6 +46,8 @@ public:
     bool contains_type( type_id id ) const;
     const std::unordered_map<type_id, type_id_data>& get_types() const;
 
+    std::string get_type_print( type_id id );
+
     static std::array<basic_type_t, 17> types;
     uint8_t bit_pointer_size;
 

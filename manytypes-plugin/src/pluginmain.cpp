@@ -21,9 +21,9 @@ PLUG_EXPORT bool pluginit( PLUG_INITSTRUCT* initStruct )
     return plugin_init( initStruct );
 }
 
-PLUG_EXPORT bool plugstop( )
+PLUG_EXPORT bool plugstop()
 {
-    plugin_stop( );
+    plugin_stop();
     return true;
 }
 
@@ -38,22 +38,26 @@ PLUG_EXPORT void plugsetup( PLUG_SETUPSTRUCT* setupStruct )
     hMenuMemmap = setupStruct->hMenuMemmap;
     hMenuSymmod = setupStruct->hMenuSymmod;
 
-    plugin_setup( );
+    plugin_setup();
 }
 
-extern "C" __declspec(dllexport) void CBWINEVENT( CBTYPE bType, PLUG_CB_WINEVENT* info )
+PLUG_EXPORT void CBWINEVENT( CBTYPE bType, PLUG_CB_WINEVENT* info )
 {
-    plugin_run_loop( );
+    plugin_run_loop();
 }
 
-extern "C" __declspec(dllexport) void CBINITDEBUG( CBTYPE bType, PLUG_CB_INITDEBUG* callbackInfo )
+PLUG_EXPORT void CBMENUENTRY( CBTYPE, PLUG_CB_MENUENTRY* info )
+{
+    plugin_menu_select( info->hEntry );
+}
+
+PLUG_EXPORT void CBINITDEBUG( CBTYPE bType, PLUG_CB_INITDEBUG* callbackInfo )
 {
     set_workspace_target( callbackInfo->szFileName );
-    dprintf( "debug inited %s\n", callbackInfo->szFileName );
+    dprintf( "inited workspace %s\n", callbackInfo->szFileName );
 }
 
-extern "C" __declspec(dllexport) void CBSTOPDEBUG( CBTYPE bType, PLUG_CB_STOPDEBUG* callbackInfo )
+PLUG_EXPORT void CBSTOPDEBUG( CBTYPE bType, PLUG_CB_STOPDEBUG* callbackInfo )
 {
-    dprintf( "debug stopped\n" );
     set_workspace_target( nullptr );
 }

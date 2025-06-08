@@ -636,13 +636,13 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
     return std::nullopt;
 }
 
-std::string create_header( const type_database_t& db )
+std::string create_header( type_database_t& db )
 {
     formatter_clang fmt( db );
     return fmt.print_database();
 }
 
-std::string create_x64dbg_database( const type_database_t& db )
+std::string create_x64dbg_database( type_database_t& db )
 {
     x64dbg_formatter fmt( db );
     return fmt.generate_json().dump( 4 );

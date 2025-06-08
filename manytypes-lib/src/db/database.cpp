@@ -91,4 +91,36 @@ const std::unordered_map<type_id, type_id_data>& type_database_t::get_types() co
 {
     return type_info;
 }
+
+std::string type_database_t::get_type_print(const type_id id)
+{
+    if (!type_info.contains(id))
+        throw TypeNotFoundException("type info must contain id");
+
+    auto& type = type_info.at(id);
+    return std::visit(
+        overloads{
+            [&](const pointer_t& p)
+            {
+                return get_type_print(p.get_elem_type()) + "*";
+            },
+            [&](const typedef_type_t& s)
+            {
+                return s.alias;
+            },
+            [&](const structure_t& s)
+            {
+                return s.get_name();
+            },
+            [&](const enum_t& e)
+            {
+                return e.get_name();
+            },
+            [&](const auto&)
+            {
+                throw TypeNotPrintable("unknown type name printed " + std::to_string(id));
+                return std::string{};
+            }
+        }, type);
+}
 } // namespace mt

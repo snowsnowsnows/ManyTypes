@@ -2,7 +2,7 @@
 
 #include "pluginmain.h"
 
-#define PLUGIN_NAME "manytypes-plugin"
+#define PLUGIN_NAME "ManyTypes"
 #define OPEN_EXPLORER_MANYTYPES 0
 #define OPEN_VSCODE_MANYTYPES 1
 

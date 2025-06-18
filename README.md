@@ -1,7 +1,8 @@
 # ManyTypes
 
 > **Note**  
-> ManyTypes currently works **only** with the [x64dbg fork](https://github.com/notpidgey/x64dbg/tree/struct-view-update).
+> ManyTypes currently works **only** with the [x64dbg fork](https://github.com/notpidgey/x64dbg/tree/struct-view-update)
+> or current 'development' branch of [x64dbg](https://github.com/x64dbg/x64dbg/tree/development) (awaiting snapshot release)
 
 ## Using ManyTypes with x64dbg
 ### Basic Steps:

@@ -16212,7 +16212,7 @@ typedef _ETW_TRACE_GUID_INFO* PETW_TRACE_GUID_INFO;
 typedef _ETWTRACECONTROLCODE ETWTRACECONTROLCODE;
 typedef _TELEMETRY_COVERAGE_POINT TELEMETRY_COVERAGE_POINT;
 typedef _TELEMETRY_COVERAGE_POINT* PTELEMETRY_COVERAGE_POINT;
-#define ALIGN( x ) __attribute__( ( packed, aligned( x ) ) )
+#define ALIGN( x ) __attribute__( ( aligned( x ) ) )
 struct ALIGN( 4 ) _LUID
 {
     DWORD LowPart;

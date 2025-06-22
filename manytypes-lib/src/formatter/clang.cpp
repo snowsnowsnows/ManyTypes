@@ -14,7 +14,7 @@ std::string formatter_clang::print_database()
     result += print_forwards();
     result += print_enums();
     result += print_typedefs();
-    result += "#define ALIGN(x) __attribute__((packed, aligned(x)))\n";
+    result += "#define ALIGN(x) __attribute__((aligned(x)))\n";
     result += print_structs();
 
     return result;

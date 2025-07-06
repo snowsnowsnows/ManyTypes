@@ -54,7 +54,7 @@ std::string debug_print_cursor( const CXCursor& cursor )
         std::string filename = clang_getCString( file_name_str );
 
         clang_disposeString( file_name_str );
-        return std::format("{}:{}:{}", filename, line, column);
+        return std::format( "{}:{}:{}", filename, line, column );
     }
 
     return "";
@@ -341,7 +341,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                     },
                     [&]( auto&& )
                     {
-                        throw InvalidParentDeclarationException("unexpected parent for anonymous type", debug_print_cursor( cursor ));
+                        throw InvalidParentDeclarationException( "unexpected parent for anonymous type", debug_print_cursor( cursor ) );
                     } },
                 client_data->type_db.lookup_type( client_data->clang_db.get_type_id( parent_type ) ) );
         }
@@ -477,7 +477,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
 
                         auto& back = fields.back();
                         if ( back.bit_offset == bit_offset && back.name.empty() &&
-                            back.type_id == true_underlying )
+                             back.type_id == true_underlying )
                         {
                             // anonymous field
                             back.name = clang_spelling_str( cursor );
@@ -546,6 +546,44 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         default:
             throw InvalidParentDeclarationException( "typedef must be contained within a valid structure or class", debug_print_cursor( cursor ) );
         }
+    }
+    case CXCursor_CXXBaseSpecifier:
+    {
+        const CXCursorKind parent_kind = clang_getCursorKind( parent );
+        if ( parent_kind != CXCursor_ClassDecl && parent_kind != CXCursor_StructDecl && parent_kind != CXCursor_UnionDecl )
+            throw InvalidParentDeclarationException( "parent is not valid structure declaration", debug_print_cursor( cursor ) );
+
+        auto parent_type = clang_getCursorType( parent );
+
+        type_id_data& type_data = client_data->type_db.lookup_type( client_data->clang_db.get_type_id( parent_type ) );
+        std::visit(
+            overloads{
+                [&]( structure_t& s )
+                {
+                    const auto bit_offset = clang_getOffsetOfBase( parent, cursor );
+                    if ( bit_offset == CXTypeLayoutError_Invalid || bit_offset == CXTypeLayoutError_Incomplete || bit_offset == CXTypeLayoutError_Dependent || bit_offset == CXTypeLayoutError_InvalidFieldName )
+                        throw InvalidFieldException( "field offset is invalid", debug_print_cursor( cursor ) );
+
+                    auto underlying_type = clang_getCursorType( cursor );
+                    auto bit_width = clang_Type_getSizeOf( underlying_type );
+                    if ( bit_width < 0 )
+                        throw InvalidFieldException( "bit width must not be value dependent", debug_print_cursor( cursor ) );
+
+                    const type_id field_type_id = unwind_complex_type( client_data, underlying_type );
+                    s.add_field(
+                        base_field_t{
+                            .bit_offset = static_cast<uint32_t>( bit_offset ),
+                            .bit_size = static_cast<uint32_t>( bit_width ),
+                            .is_bit_field = clang_Cursor_isBitField( cursor ) != 0,
+                            .name = clang_spelling_str( cursor ),
+                            .type_id = field_type_id,
+                        } );
+                },
+                [&]( auto&& ) {},
+            },
+            type_data );
+
+        break;
     }
     case CXCursor_ClassTemplate:
     case CXCursor_FunctionTemplate:

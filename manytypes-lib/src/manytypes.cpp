@@ -313,8 +313,6 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         {
             // check if anonymous union because it must mean
             auto parent_type = clang_getCursorType( parent_cursor );
-            auto debug = debug_print_cursor( cursor );
-            std::cout << debug << std::endl;
             std::visit(
                 overloads{
                     [&]( structure_t& s )

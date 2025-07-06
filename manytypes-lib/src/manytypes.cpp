@@ -230,9 +230,8 @@ type_id unwind_complex_type( clang_context_t* client_data, const CXType& type )
             // we reached the base type, verify that it exists
             auto test = clang_spelling_str( lower_type );
             if ( !client_data->clang_db.is_type_defined( lower_type ) )
-                throw TypeNotDefinedException( "type id must exist" );
+                throw TypeNotDefinedException( "unwind_complex_type underlying typeid does not exist in database" );
             base_type_case = true;
-
             break;
         }
         }
@@ -261,13 +260,13 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         // todo: in ctor check that none of the arguments are negative other than size = -1
         auto decl_type_byte_size = clang_Type_getSizeOf( cursor_type );
         if ( decl_type_byte_size == CXTypeLayoutError_Invalid || decl_type_byte_size == CXTypeLayoutError_Dependent )
-            throw InvalidStructureException( "structure is not properly sized" );
+            throw InvalidStructureException( "structure size is invalid", debug_print_cursor( cursor ) );
 
         bool is_forward = is_forward_declaration( cursor );
 
         auto decl_type_byte_align = clang_Type_getAlignOf( cursor_type );
         if ( !is_forward && decl_type_byte_align <= 0 )
-            throw InvalidStructureException( "structure is not properly aligned" );
+            throw InvalidStructureException( "structure is incorrectly", debug_print_cursor( cursor ) );
 
         uint32_t decl_type_size = decl_type_byte_size * 8;
         uint32_t decl_type_align = decl_type_byte_align * 8;
@@ -314,6 +313,8 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         {
             // check if anonymous union because it must mean
             auto parent_type = clang_getCursorType( parent_cursor );
+            auto debug = debug_print_cursor( cursor );
+            std::cout << debug << std::endl;
             std::visit(
                 overloads{
                     [&]( structure_t& s )
@@ -445,7 +446,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
 
                     const auto bit_offset = clang_Cursor_getOffsetOfField( cursor );
                     if ( bit_offset == CXTypeLayoutError_Invalid || bit_offset == CXTypeLayoutError_Incomplete || bit_offset == CXTypeLayoutError_Dependent || bit_offset == CXTypeLayoutError_InvalidFieldName )
-                        throw InvalidFieldException( "field offset is invalid", debug_print_cursor( cursor ) );
+                        throw InvalidFieldException( "structure field offset is invalid", debug_print_cursor( cursor ) );
 
                     const type_id field_type_id = unwind_complex_type( client_data, underlying_type );
                     bool revised_field = false;
@@ -521,7 +522,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
 
         type_id result_id = unwind_complex_type( client_data, underlying_type );
         if ( !client_data->clang_db.is_type_defined( underlying_type ) )
-            throw TypeNotDefinedException( "underlying type must be defined" );
+            throw TypeNotDefinedException( "typedef underlying type must be defined" );
 
         result_id = client_data->type_db.insert_type(
             typedef_type_t(
@@ -531,7 +532,7 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
         client_data->clang_db.save_type_id( cursor_type, result_id );
         break;
 
-        auto semantic_parent = clang_getCursorSemanticParent( cursor );
+        /*auto semantic_parent = clang_getCursorSemanticParent( cursor );
         switch ( clang_getCursorKind( semantic_parent ) )
         {
         case CXCursor_StructDecl:
@@ -545,13 +546,13 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
             break;
         default:
             throw InvalidParentDeclarationException( "typedef must be contained within a valid structure or class", debug_print_cursor( cursor ) );
-        }
+        }*/
     }
     case CXCursor_CXXBaseSpecifier:
     {
         const CXCursorKind parent_kind = clang_getCursorKind( parent );
         if ( parent_kind != CXCursor_ClassDecl && parent_kind != CXCursor_StructDecl && parent_kind != CXCursor_UnionDecl )
-            throw InvalidParentDeclarationException( "parent is not valid structure declaration", debug_print_cursor( cursor ) );
+            throw InvalidParentDeclarationException( "base class parent is not valid structure declaration", debug_print_cursor( cursor ) );
 
         auto parent_type = clang_getCursorType( parent );
 
@@ -562,12 +563,12 @@ CXChildVisitResult visit_cursor( CXCursor cursor, CXCursor parent, CXClientData 
                 {
                     const auto bit_offset = clang_getOffsetOfBase( parent, cursor );
                     if ( bit_offset == CXTypeLayoutError_Invalid || bit_offset == CXTypeLayoutError_Incomplete || bit_offset == CXTypeLayoutError_Dependent || bit_offset == CXTypeLayoutError_InvalidFieldName )
-                        throw InvalidFieldException( "field offset is invalid", debug_print_cursor( cursor ) );
+                        throw InvalidFieldException( "base class offset is invalid", debug_print_cursor( cursor ) );
 
                     auto underlying_type = clang_getCursorType( cursor );
                     auto bit_width = clang_Type_getSizeOf( underlying_type );
                     if ( bit_width < 0 )
-                        throw InvalidFieldException( "bit width must not be value dependent", debug_print_cursor( cursor ) );
+                        throw InvalidFieldException( "base class bit width must not be value dependent", debug_print_cursor( cursor ) );
 
                     const type_id field_type_id = unwind_complex_type( client_data, underlying_type );
                     s.add_field(
@@ -666,7 +667,9 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
                 return ctx.type_db;
         }
         else
-            printf( "CXError: %d\n", error );
+        {
+            throw ClangException( error );
+        }
 
         clang_disposeTranslationUnit( tu );
     }

@@ -96,7 +96,7 @@ nlohmann::json x64dbg_formatter::generate_json()
                 },
                 [&]( auto&& a )
                 {
-                    throw X64DbgUnknownTypeException( "failed" );
+                    throw X64DbgUnknownTypeException( "encountered invalid/null type" );
                 } },
             type_db.lookup_type( id ) );
     }

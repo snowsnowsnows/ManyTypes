@@ -569,7 +569,7 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
         "-Xclang",
         "-fsyntax-only",
         "-target",
-        bit32 ? "x86-windows-msvc" : "x86_64-windows-msvc"
+        bit32 ? "i686-pc-windows-msvc" : "x86_64-windows-msvc"
     };
 
     std::vector<const char*> c_args;

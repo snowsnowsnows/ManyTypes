@@ -11,9 +11,16 @@ int main()
 
     std::ofstream out_header( "out_header.h" );
 
-    auto db = mt::parse_root_source( source );
-    out_header << mt::create_header( *db );
+    try
+    {
+        auto db = mt::parse_root_source( source );
+        out_header << mt::create_header( *db );
 
-    std::ofstream out_db( "out_db.json" );
-    out_db << mt::create_x64dbg_database( *db );
+        std::ofstream out_db( "out_db.json" );
+        out_db << mt::create_x64dbg_database( *db );
+    }
+    catch ( std::exception& exc)
+    {
+        std::cout << exc.what() << std::endl;
+    }
 }

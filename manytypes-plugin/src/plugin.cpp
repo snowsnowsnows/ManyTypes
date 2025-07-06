@@ -112,9 +112,11 @@ void plugin_run_loop()
 
     try
     {
-        BOOL is_bit32;
-        IsWow64Process( DbgGetProcessHandle(), &is_bit32 );
-
+#ifdef _M_IX86
+        BOOL is_bit32 = true;
+#else
+        BOOL is_bit32 = false;
+#endif
         std::lock_guard typedb_lock( g_typedb_mutex );
 
         auto typedb = mt::parse_root_source( src_root, is_bit32 );

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <format>
 #include <stdexcept>
 #include <string>
 
@@ -16,8 +17,22 @@ public:
 class ClangException : public Exception
 {
 public:
-    explicit ClangException( const uint32_t exception_code )
-        : Exception( "ClangException 0x%X" + exception_code ) {}
+    explicit ClangException( const std::string& message )
+        : Exception( "ClangException: " + message ) {}
+};
+
+class TuException : public ClangException
+{
+public:
+    explicit TuException( const uint32_t exception_code )
+        : ClangException( std::format("TuException 0x{:x}", exception_code) ) {}
+};
+
+class DiagException : public ClangException
+{
+public:
+    explicit DiagException( const std::string& message )
+        : ClangException( "DiagException\n" + message ) {}
 };
 
 class DatabaseException : public Exception

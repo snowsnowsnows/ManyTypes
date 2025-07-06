@@ -635,26 +635,28 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
 
         if ( error == CXError_Success )
         {
-            /*
+            std::string diagnostic_output;
             const unsigned num_diagnostics = clang_getNumDiagnostics( tu );
 
             bool error_found = false;
-            for ( unsigned i = 0; i < num_diagnostics && !error_found; i++ )
+            for ( unsigned i = 0; i < num_diagnostics; i++ )
             {
                 const CXDiagnostic diagnostic = clang_getDiagnostic( tu, i );
                 const CXDiagnosticSeverity severity = clang_getDiagnosticSeverity( diagnostic );
                 if ( severity == CXDiagnostic_Error || severity == CXDiagnostic_Fatal )
+                {
+                    const CXString formatted_diag = clang_formatDiagnostic(diagnostic, clang_defaultDiagnosticDisplayOptions());
+                    diagnostic_output += std::format( "diagnostic {} {}\n", i, clang_getCString(formatted_diag) );
+
+                    clang_disposeDiagnostic( diagnostic );
+                    clang_disposeString( formatted_diag );
+
                     error_found = true;
-#ifdef _DEBUG
-                CXString formatted_diag = clang_formatDiagnostic(diagnostic, clang_defaultDiagnosticDisplayOptions());
-                std::cout << "Diagnostic " << clang_getCString(formatted_diag) << std::endl << std::flush;
-#endif
-                clang_disposeDiagnostic( diagnostic );
+                }
             }
 
             if ( error_found )
-                return std::nullopt;
-            */
+                throw DiagException( diagnostic_output );
 
             clang_context_t ctx( bit32 ? 4 : 8 );
 
@@ -666,7 +668,7 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
         }
         else
         {
-            throw ClangException( error );
+            throw TuException( error );
         }
 
         clang_disposeTranslationUnit( tu );

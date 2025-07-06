@@ -33,9 +33,12 @@ jobs:
 
       - name: Copy release artifacts
         run: |
-          Copy-Item -Path .github/x86_64-release-artifacts/* -Destination package/x64/ManyTypes -Recurse -Force
+          Copy-Item -Path .github/release-artifacts-x86_64/* -Destination package/x64/ManyTypes -Recurse -Force
+          Copy-Item -Path .github/release-artifacts/* -Destination package/x64/ManyTypes -Recurse -Force
           Copy-Item extern/bin/x64/libclang.dll -Destination package/x64/plugins -Force
-          Copy-Item -Path .github/x86-release-artifacts/* -Destination package/x32/ManyTypes -Recurse -Force
+          
+          Copy-Item -Path .github/release-artifacts-x86/* -Destination package/x32/ManyTypes -Recurse -Force
+          Copy-Item -Path .github/release-artifacts/* -Destination package/x32/ManyTypes -Recurse -Force
           Copy-Item extern/bin/x32/libclang.dll -Destination package/x32/plugins -Force
         shell: pwsh
 

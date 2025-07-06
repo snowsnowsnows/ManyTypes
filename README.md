@@ -1,21 +1,20 @@
 # ManyTypes
 
 > **Note**  
-> ManyTypes currently works **only** with the [x64dbg fork](https://github.com/notpidgey/x64dbg/tree/struct-view-update)
-> or current 'development' branch of [x64dbg](https://github.com/x64dbg/x64dbg/tree/development) (awaiting snapshot release)
+> ManyTypes requires at least [x64dbg 2025.06.30](https://github.com/x64dbg/x64dbg/releases/tag/2025.06.30)
 
 ## Using ManyTypes with x64dbg
 ### Basic Steps:
-1. Start debug session
-2. Open `x64dbg/ManyTypes/[ImageName]` or click `Plugins | ManyTypes | Open in Explorer`
-3. Edit and save `project.h`
+1. Start debug session. This is required for ManyTypes to create a new project directory with a `project.h` and begin parsing. 
+2. Click `Plugins | ManyTypes | Open in Explorer` or go to the path `x64dbg/ManyTypes/[ImageName]`
+3. Edit and save `project.h` from the folder associated with your debug session. Structures will automatically load on save.
 4. Check console for errors
 5. Use the newly created type in struct window.
 
 ### How can I always import Windows types into my projects?
 **If installed using official release, `global.h` will always contain an include for `windows.h`**
 
-Otherwise, create a `global.h` if one does not exist. Then, add `#include "windows.h"` to the file.
+Otherwise, create a `global.h` if one does not exist. Then, add `#include "windows-{x86/x86_64}.h"` to the file.
 When opening a new debug session, `global.h` will be automatically included for the project (thereby including `windows.h`).
 
 ### What is ".artifacts" ?

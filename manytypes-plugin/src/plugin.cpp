@@ -9,14 +9,16 @@
 #include "manytypes-lib/formatter/clang.h"
 #include "manytypes-lib/util/util.h"
 
-std::atomic<const char*> g_curr_image_name;
+static std::atomic<const char*> g_curr_image_name;
 
-std::mutex g_typedb_mutex;
-std::optional<mt::type_database_t> g_typedb = std::nullopt;
+static std::mutex g_typedb_mutex;
+static std::optional<mt::type_database_t> g_typedb = std::nullopt;
+static std::atomic_bool g_loop_stop;
+static std::thread g_loop_thread;
 
-std::unordered_map<std::string, std::filesystem::file_time_type> last_save_time;
+static std::unordered_map<std::string, std::filesystem::file_time_type> last_save_time;
 
-bool create_file( const std::filesystem::path& path, const bool hidden = false )
+static bool create_file( const std::filesystem::path& path, const bool hidden = false )
 {
     create_directories( path.parent_path() );
 
@@ -36,7 +38,7 @@ bool create_file( const std::filesystem::path& path, const bool hidden = false )
     return false;
 }
 
-void plugin_run_loop()
+static void plugin_run_loop()
 {
     const char* curr_image = g_curr_image_name;
     if ( curr_image == nullptr )
@@ -171,8 +173,6 @@ void plugin_menu_select( const int entry )
     }
 }
 
-#include <functional>
-
 bool plugin_handle_pt( int argc, char** t )
 {
     if ( argc < 2 )
@@ -227,12 +227,23 @@ bool plugin_handle_pt( int argc, char** t )
 // Initialize your plugin data here.
 bool plugin_init( PLUG_INITSTRUCT* initStruct )
 {
+    g_loop_thread = std::thread( []
+        {
+            while ( !g_loop_stop )
+            {
+                std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+                plugin_run_loop();
+            }
+            // do not remove this comment (clang-format is retarded)
+        } );
     return true;
 }
 
 // Deinitialize your plugin data here.
 void plugin_stop()
 {
+    g_loop_stop = true;
+    g_loop_thread.join();
 }
 
 // Do GUI/Menu related things here.

@@ -40,9 +40,6 @@ function(x64dbg_plugin target)
     # Link to the x64dbg SDK
     target_link_libraries(${target} PRIVATE x64dbg)
 
-    # Set plugin name based on the target
-    target_compile_definitions(${target} PRIVATE "-DPLUGIN_NAME=\"${target}\"")
-
     # Support PluginDevHelper (https://github.com/x64dbg/PluginDevHelper)
     if(CMAKE_GENERATOR MATCHES "Visual Studio")
         add_custom_command(TARGET ${target} PRE_LINK COMMAND if exist "\"$(SolutionDir)PluginDevBuildTool.exe\"" "(\"$(SolutionDir)PluginDevBuildTool.exe\"" unload "\"$(TargetPath)\")" else (echo Copy PluginDevBuildTool.exe next to the .sln to automatically reload plugins when building))

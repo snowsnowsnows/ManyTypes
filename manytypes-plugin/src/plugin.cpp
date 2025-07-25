@@ -9,7 +9,7 @@
 #include "manytypes-lib/formatter/clang.h"
 #include "manytypes-lib/util/util.h"
 
-static std::atomic<const char*> g_curr_image_name;
+static std::string g_curr_image_name;
 
 static std::mutex g_typedb_mutex;
 static std::optional<mt::type_database_t> g_typedb = std::nullopt;
@@ -40,11 +40,10 @@ static bool create_file( const std::filesystem::path& path, const bool hidden = 
 
 static void plugin_run_loop()
 {
-    const char* curr_image = g_curr_image_name;
-    if ( curr_image == nullptr )
+    if ( g_curr_image_name.empty() )
         return;
 
-    std::filesystem::path image_path( curr_image );
+    std::filesystem::path image_path( g_curr_image_name );
 
     std::string norm_image_name = image_path.stem().string();
     std::ranges::replace( norm_image_name, ' ', '-' );
@@ -155,9 +154,9 @@ static void plugin_run_loop()
     }
 }
 
-void set_workspace_target( const char* image_name )
+void set_workspace_target( std::string image_name )
 {
-    g_curr_image_name = image_name;
+    g_curr_image_name = std::string( image_name );
 }
 
 void plugin_menu_select( const int entry )

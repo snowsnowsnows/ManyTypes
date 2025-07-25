@@ -54,5 +54,5 @@ PLUG_EXPORT void CBINITDEBUG( CBTYPE bType, PLUG_CB_INITDEBUG* callbackInfo )
 
 PLUG_EXPORT void CBSTOPDEBUG( CBTYPE bType, PLUG_CB_STOPDEBUG* callbackInfo )
 {
-    set_workspace_target( nullptr );
+    set_workspace_target( {} );
 }

@@ -1,26 +1,39 @@
 #include "manytypes-lib/manytypes.h"
 #include <iostream>
+#include <filesystem>
+#include <fstream>
 
-int main()
+int main( int argc, char* argv[] )
 {
-    const auto source = std::filesystem::current_path() / "source.cpp";
+    if ( argc < 3 )
     {
-        std::ofstream f( source, std::ios::trunc );
-        f << "#include \"phnt.h\"";
+        std::cout << "Usage: " << argv[0] << " <header-file-path> <json-output-path>" << std::endl;
+        return 1;
     }
 
-    std::ofstream out_header( "out_header.h" );
+    std::filesystem::path header_path = argv[1];
+    std::filesystem::path out_json = argv[2];
+    std::filesystem::path source = header_path.parent_path() / "source.cpp";
+
+    {
+        std::ofstream f( source, std::ios::trunc );
+        f << "#include \"" << header_path.filename().string() << "\"";
+    }
 
     try
     {
         auto db = mt::parse_root_source( source );
-        out_header << mt::create_header( *db );
 
-        std::ofstream out_db( "out_db.json" );
+        std::ofstream out_db( out_json );
         out_db << mt::create_x64dbg_database( *db );
+
+        std::cout << "generated: " << out_json << std::endl;
     }
-    catch ( std::exception& exc)
+    catch ( std::exception& exc )
     {
         std::cout << exc.what() << std::endl;
+        return 1;
     }
+
+    return 0;
 }

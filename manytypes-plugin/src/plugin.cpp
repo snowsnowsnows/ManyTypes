@@ -230,7 +230,7 @@ bool plugin_init( PLUG_INITSTRUCT* initStruct )
         {
             while ( !g_loop_stop )
             {
-                std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+                std::this_thread::sleep_for( std::chrono::milliseconds( 10 ) );
                 plugin_run_loop();
             }
             // do not remove this comment (clang-format is retarded)

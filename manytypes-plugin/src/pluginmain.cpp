@@ -41,11 +41,6 @@ PLUG_EXPORT void plugsetup( PLUG_SETUPSTRUCT* setupStruct )
     plugin_setup();
 }
 
-PLUG_EXPORT void CBWINEVENT( CBTYPE bType, PLUG_CB_WINEVENT* info )
-{
-    plugin_run_loop();
-}
-
 PLUG_EXPORT void CBMENUENTRY( CBTYPE, PLUG_CB_MENUENTRY* info )
 {
     plugin_menu_select( info->hEntry );
@@ -54,10 +49,10 @@ PLUG_EXPORT void CBMENUENTRY( CBTYPE, PLUG_CB_MENUENTRY* info )
 PLUG_EXPORT void CBINITDEBUG( CBTYPE bType, PLUG_CB_INITDEBUG* callbackInfo )
 {
     set_workspace_target( callbackInfo->szFileName );
-    dprintf( "inited workspace %s\n", callbackInfo->szFileName );
+    dprintf( "initialized workspace %s\n", callbackInfo->szFileName );
 }
 
 PLUG_EXPORT void CBSTOPDEBUG( CBTYPE bType, PLUG_CB_STOPDEBUG* callbackInfo )
 {
-    set_workspace_target( nullptr );
+    set_workspace_target( {} );
 }

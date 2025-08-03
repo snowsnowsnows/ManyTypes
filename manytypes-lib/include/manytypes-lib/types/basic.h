@@ -14,7 +14,7 @@ public:
 
     std::vector<type_id> get_dependencies() const override
     {
-        assert( true, "cannot retreive dependencies for null type" );
+        // assert( false && "cannot retrieve dependencies for null type" );
         return {};
     }
 };

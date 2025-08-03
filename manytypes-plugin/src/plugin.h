@@ -2,13 +2,10 @@
 
 #include "pluginmain.h"
 
-#define PLUGIN_NAME "ManyTypes"
 #define OPEN_EXPLORER_MANYTYPES 0
 #define OPEN_VSCODE_MANYTYPES 1
 
-void plugin_run_loop();
-
-void set_workspace_target( const char* image_name );
+void set_workspace_target( std::string image_name );
 void plugin_menu_select( int entry );
 bool plugin_handle_pt( int argc, char** t );
 

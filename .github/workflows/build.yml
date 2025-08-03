@@ -28,7 +28,7 @@ jobs:
           mkdir package\x32\plugins\
           mkdir package\x32\ManyTypes
           cmake -B build32 -A Win32
-          cmake --build build32 --config Release --target manytypes-plugin manytypes-sandbox
+          cmake --build build32 --config Release --target manytypes-plugin
           copy build32\Release\*.dp32 package\x32\plugins\
 
       - name: Copy release artifacts
@@ -42,13 +42,13 @@ jobs:
           Copy-Item extern/bin/x32/libclang.dll -Destination package/x32/plugins -Force
         shell: pwsh
 
-      - name: Generate JSON (x64)
-        run: |
-          build64\Release\manytypes-sandbox.exe manytypes-lib/include/manytypes-lib/windows-x86_64.h package\x64\ManyTypes\windows-x86_64.json 0
-
       - name: Generate JSON (x32)
         run: |
-          build32\Release\manytypes-sandbox.exe manytypes-lib/include/manytypes-lib/windows-x86.h package\x32\ManyTypes\windows-x86.json 1
+          build64\Release\manytypes-sandbox.exe .github/release-artifacts-x86/windows-x86.h package\x32\ManyTypes\windows-x86.json 1
+
+      - name: Generate JSON (x64)
+        run: |
+          build64\Release\manytypes-sandbox.exe .github/release-artifacts-x86_64/windows-x86_64.h package\x64\ManyTypes\windows-x86_64.json 0
 
       - uses: actions/upload-artifact@v4
         with:

@@ -53,13 +53,16 @@ jobs:
         with:
           files: package/
           dest: ${{ github.event.repository.name }}-${{ github.ref_name }}.zip
-
+          
       - name: Release
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v0.1.15
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
         with:
           prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') || contains(github.ref, '-pre') }}
-          files: ${{ github.event.repository.name }}-${{ github.ref_name }}.zip
+          files: |
+            ${{ github.event.repository.name }}-${{ github.ref_name }}.zip
+            package/x64/ManyTypes/windows-x86_64.json
+            package/x32/ManyTypes/windows-x86.json
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

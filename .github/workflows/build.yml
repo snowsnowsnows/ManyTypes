@@ -44,11 +44,11 @@ jobs:
 
       - name: Generate JSON (x64)
         run: |
-          build64\Release\manytypes-sandbox.exe manytypes-lib/include/manytypes-lib/windows-x86_64.h package\x64\ManyTypes\windows-x86_64.json
+          build64\Release\manytypes-sandbox.exe manytypes-lib/include/manytypes-lib/windows-x86_64.h package\x64\ManyTypes\windows-x86_64.json 0
 
       - name: Generate JSON (x32)
         run: |
-          build32\Release\manytypes-sandbox.exe manytypes-lib/include/manytypes-lib/windows-x86.h package\x32\ManyTypes\windows-x86.json
+          build32\Release\manytypes-sandbox.exe manytypes-lib/include/manytypes-lib/windows-x86.h package\x32\ManyTypes\windows-x86.json 1
 
       - uses: actions/upload-artifact@v4
         with:

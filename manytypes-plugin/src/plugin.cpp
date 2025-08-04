@@ -38,7 +38,7 @@ static void plugin_run_loop()
 
     auto image_path = std::filesystem::u8path( g_curr_image_name );
 
-    std::u8string norm_image_name = image_path.stem().u8string();
+    auto norm_image_name = image_path.stem();
     const auto run_root = std::filesystem::current_path();
 
     const auto manytypes_root = run_root / "ManyTypes";
@@ -101,7 +101,10 @@ static void plugin_run_loop()
             auto& db = *typedb;
             g_typedb = typedb;
 
-            auto target_db = manytypes_artifacts / ( norm_image_name + u8".json" );
+            std::filesystem::path norm_image_json = norm_image_name;
+            norm_image_json.replace_extension( ".json" );
+
+            std::filesystem::path target_db = manytypes_artifacts / norm_image_json;
             if ( std::ofstream json_db( target_db, std::ios::trunc ); json_db )
             {
                 json_db << create_x64dbg_database( db );

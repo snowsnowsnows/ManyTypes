@@ -622,7 +622,7 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
         CXTranslationUnit tu = nullptr;
         const auto error = clang_parseTranslationUnit2(
             index,
-            src_path.string().c_str(),
+            (char*)src_path.u8string().c_str(),
             c_args.data(),
             static_cast<int>( c_args.size() ),
             nullptr,

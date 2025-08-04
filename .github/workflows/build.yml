@@ -44,11 +44,21 @@ jobs:
 
       - name: Generate JSON (x32)
         run: |
-          build64\Release\manytypes-sandbox.exe .github/release-artifacts-x86/windows-x86.h package\x32\ManyTypes\windows-x86.json 1
+          build64\Release\manytypes-sandbox.exe .github/release-artifacts-x86/windows-x86.h .github/release-artifacts-x86/windows-x86.json 1
 
       - name: Generate JSON (x64)
         run: |
-          build64\Release\manytypes-sandbox.exe .github/release-artifacts-x86_64/windows-x86_64.h package\x64\ManyTypes\windows-x86_64.json 0
+          build64\Release\manytypes-sandbox.exe .github/release-artifacts-x86_64/windows-x86_64.h .github/release-artifacts-x86_64/windows-x86_64.json 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x86_64-json
+          path: .github/release-artifacts-x86_64/windows-x86_64.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x86-json
+          path: .github/release-artifacts-x86/windows-x86.json
 
       - uses: actions/upload-artifact@v4
         with:
@@ -69,8 +79,8 @@ jobs:
           prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') || contains(github.ref, '-pre') }}
           files: |
             ${{ github.event.repository.name }}-${{ github.ref_name }}.zip
-            package/x64/ManyTypes/windows-x86_64.json
-            package/x32/ManyTypes/windows-x86.json
+            .github/release-artifacts-x86_64/windows-x86_64.json
+            .github/release-artifacts-x86/windows-x86.json
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

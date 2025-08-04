@@ -20,17 +20,10 @@ static std::unordered_map<std::string, std::filesystem::file_time_type> last_sav
 
 static bool create_file( const std::filesystem::path& path, const bool hidden = false )
 {
-    create_directories( path.parent_path() );
-
     if ( !exists( path ) )
     {
-        CloseHandle( CreateFileW( path.c_str(),
-            GENERIC_WRITE,
-            0,
-            nullptr,
-            CREATE_NEW,
-            ( hidden ? FILE_ATTRIBUTE_HIDDEN : 0 ) | FILE_ATTRIBUTE_NORMAL,
-            nullptr ) );
+        create_directories( path.parent_path() );
+        std::ofstream file( path );
 
         return true;
     }
@@ -43,11 +36,9 @@ static void plugin_run_loop()
     if ( g_curr_image_name.empty() )
         return;
 
-    std::filesystem::path image_path( g_curr_image_name );
+    auto image_path = std::filesystem::u8path( g_curr_image_name );
 
-    std::string norm_image_name = image_path.stem().string();
-    std::ranges::replace( norm_image_name, ' ', '-' );
-
+    std::u8string norm_image_name = image_path.stem().u8string();
     const auto run_root = std::filesystem::current_path();
 
     const auto manytypes_root = run_root / "ManyTypes";
@@ -95,22 +86,6 @@ static void plugin_run_loop()
     const std::filesystem::path src_root = manytypes_artifacts / "source.cpp";
     create_file( src_root );
 
-    // write dummy include
-    bool abort_parse = false;
-    {
-        std::ofstream src_file( src_root, std::ios::trunc );
-        if ( src_file )
-            src_file << "#include \"../" << norm_image_name << "/project.h\"";
-        else
-            abort_parse = true;
-    }
-
-    if ( abort_parse )
-    {
-        dprintf( "aborting header parse, unable to write %s\n", src_root.string().c_str() );
-        return;
-    }
-
     try
     {
 #ifdef _M_IX86
@@ -126,15 +101,15 @@ static void plugin_run_loop()
             auto& db = *typedb;
             g_typedb = typedb;
 
-            auto target_db = manytypes_artifacts / ( norm_image_name + ".json" );
+            auto target_db = manytypes_artifacts / ( norm_image_name + u8".json" );
             if ( std::ofstream json_db( target_db, std::ios::trunc ); json_db )
             {
                 json_db << create_x64dbg_database( db );
                 json_db.close();
 
-                auto types_path = relative( target_db, std::filesystem::current_path() ).string();
-                DbgCmdExec( std::format( "ClearTypes \"{}\"", types_path ).c_str() );
-                DbgCmdExec( std::format( "LoadTypes \"{}\"", types_path ).c_str() );
+                std::u8string types_path = relative( target_db, std::filesystem::current_path() ).u8string();
+                DbgCmdExec( std::format( "ClearTypes \"{}\"", (char*)types_path.c_str() ).c_str() );
+                DbgCmdExec( std::format( "LoadTypes \"{}\"", (char*)types_path.c_str() ).c_str() );
 
                 dprintf( "updated json db %s\n", types_path.c_str() );
             }

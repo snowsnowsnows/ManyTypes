@@ -16,7 +16,7 @@ static std::optional<mt::type_database_t> g_typedb = std::nullopt;
 static std::atomic_bool g_loop_stop;
 static std::thread g_loop_thread;
 
-static std::unordered_map<std::string, std::filesystem::file_time_type> last_save_time;
+static std::unordered_map<std::u8string, std::filesystem::file_time_type> last_save_time;
 
 static bool create_file( const std::filesystem::path& path, const bool hidden = false )
 {
@@ -69,11 +69,12 @@ static void plugin_run_loop()
             if ( file.extension() != ".h" && file.extension() != ".hpp" )
                 continue;
 
+            auto file_string = file.filename().u8string();
             auto last_write = last_write_time( file );
-            if ( last_save_time[file.filename().string()] != last_write )
+            if ( last_save_time[file_string] != last_write )
                 must_refresh = true;
 
-            last_save_time[file.filename().string()] = last_write;
+            last_save_time[file_string] = last_write;
         }
     }
 

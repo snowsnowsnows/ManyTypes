@@ -221,6 +221,7 @@ bool plugin_init( PLUG_INITSTRUCT* initStruct )
 void plugin_stop()
 {
     g_loop_stop = true;
+    std::lock_guard typedb_lock( g_typedb_mutex );
     g_loop_thread.join();
 }
 

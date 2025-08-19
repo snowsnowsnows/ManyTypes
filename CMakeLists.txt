@@ -26,12 +26,11 @@ if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 	# Create a configure-time dependency on cmake.toml to improve IDE support
 	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS cmake.toml)
 	if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
-		set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+		set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 	endif()
 
 endif()
 
-include("cmake/msvc-static-runtime.cmake")
 include("cmake/msvc-configurations.cmake")
 
 project(ManyTypes)
@@ -171,9 +170,4 @@ endif()
 
 target_link_libraries(manytypes-plugin PUBLIC
 	manytypes-lib
-)
-
-set_target_properties(manytypes-plugin PROPERTIES
-	MSVC_RUNTIME_LIBRARY
-		"MultiThreaded$<$<CONFIG:Debug>:Debug>"
 )

@@ -205,6 +205,13 @@ bool plugin_handle_pt( int argc, char** t )
 // Initialize your plugin data here.
 bool plugin_init( PLUG_INITSTRUCT* initStruct )
 {
+    // HACK: there is a bug in libclang.dll that causes a crash if unloaded before
+    // process exit. As a workaround we increase the ref count of the library, so
+    // that it doesn't get unloaded until the process exits. This happens because
+    // FlsFree is not called for every FlsAlloc instance.
+    // Reference: https://github.com/llvm/llvm-project/issues/154361
+    LoadLibraryW( L"libclang.dll" );
+
     g_loop_thread = std::thread( []
         {
             while ( !g_loop_stop )

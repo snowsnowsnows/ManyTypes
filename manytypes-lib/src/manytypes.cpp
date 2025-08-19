@@ -13,6 +13,37 @@
 
 namespace mt
 {
+template<class T, void ( *Disposer )( T )>
+struct CXWrapper
+{
+    CXWrapper() = default;
+    CXWrapper( const CXWrapper& ) = delete;
+    CXWrapper& operator=( const CXWrapper& ) = delete;
+
+    CXWrapper( T raw )
+        : raw( raw )
+    {
+    }
+
+    ~CXWrapper()
+    {
+        Disposer( raw );
+    }
+
+    T* operator&()
+    {
+        return &raw;
+    }
+
+    operator T() const
+    {
+        return raw;
+    }
+
+private:
+    T raw{};
+};
+
 type_id database_update_insert( clang_context_t* client_data, const CXType& type, const type_id_data& data )
 {
     type_id out;
@@ -50,10 +81,9 @@ std::string debug_print_cursor( const CXCursor& cursor )
 
     if ( file )
     {
-        CXString file_name_str = clang_getFileName( file );
+        CXWrapper<CXString, clang_disposeString> file_name_str = clang_getFileName( file );
         std::string filename = clang_getCString( file_name_str );
 
-        clang_disposeString( file_name_str );
         return std::format( "{}:{}:{}", filename, line, column );
     }
 
@@ -614,12 +644,13 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
         c_args.push_back( arg.c_str() );
 
 #ifdef _DEBUG
-    if ( const auto index = clang_createIndex( 0, 1 ) )
+    auto display_diagnostics = true;
 #else
-    if ( const auto index = clang_createIndex( 0, 0 ) )
-#endif
+    auto display_diagnostics = false;
+#endif // _DEBUG
+    if ( CXWrapper<CXIndex, clang_disposeIndex> index = clang_createIndex( 0, display_diagnostics ) )
     {
-        CXTranslationUnit tu = nullptr;
+        CXWrapper<CXTranslationUnit, clang_disposeTranslationUnit> tu;
         const auto error = clang_parseTranslationUnit2(
             index,
             (char*)src_path.u8string().c_str(),
@@ -641,16 +672,12 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
             bool error_found = false;
             for ( unsigned i = 0; i < num_diagnostics; i++ )
             {
-                const CXDiagnostic diagnostic = clang_getDiagnostic( tu, i );
+                CXWrapper<CXDiagnostic, clang_disposeDiagnostic> diagnostic = clang_getDiagnostic( tu, i );
                 const CXDiagnosticSeverity severity = clang_getDiagnosticSeverity( diagnostic );
                 if ( severity == CXDiagnostic_Error || severity == CXDiagnostic_Fatal )
                 {
-                    const CXString formatted_diag = clang_formatDiagnostic(diagnostic, clang_defaultDiagnosticDisplayOptions());
-                    diagnostic_output += std::format( "diagnostic {} {}\n", i, clang_getCString(formatted_diag) );
-
-                    clang_disposeDiagnostic( diagnostic );
-                    clang_disposeString( formatted_diag );
-
+                    CXWrapper<CXString, clang_disposeString> formatted_diag = clang_formatDiagnostic( diagnostic, clang_defaultDiagnosticDisplayOptions() );
+                    diagnostic_output += std::format( "diagnostic {} {}\n", i, clang_getCString( formatted_diag ) );
                     error_found = true;
                 }
             }
@@ -670,8 +697,6 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
         {
             throw TuException( error );
         }
-
-        clang_disposeTranslationUnit( tu );
     }
 
     return std::nullopt;

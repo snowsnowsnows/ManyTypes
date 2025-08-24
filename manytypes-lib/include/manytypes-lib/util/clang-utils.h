@@ -90,6 +90,37 @@ private:
     bool inited;
 };
 
+template<class T, void ( *Disposer )( T )>
+struct cx_wrapper
+{
+    cx_wrapper() = default;
+    cx_wrapper( const cx_wrapper& ) = delete;
+    cx_wrapper& operator=( const cx_wrapper& ) = delete;
+
+    cx_wrapper( T raw )
+        : raw( raw )
+    {
+    }
+
+    ~cx_wrapper()
+    {
+        Disposer( raw );
+    }
+
+    T* operator&()
+    {
+        return &raw;
+    }
+
+    operator T() const
+    {
+        return raw;
+    }
+
+private:
+    T raw{};
+};
+
 inline std::pair<std::vector<size_t>, CXType> get_array_dimensions( CXType type )
 {
     std::vector<size_t> dimensions;

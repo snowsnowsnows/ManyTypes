@@ -2,8 +2,11 @@
 
 #include "pluginmain.h"
 
-#define OPEN_EXPLORER_MANYTYPES 0
-#define OPEN_VSCODE_MANYTYPES 1
+enum
+{
+    OPEN_EXPLORER_MANYTYPES,
+    OPEN_VSCODE_MANYTYPES,
+};
 
 void set_workspace_target( std::string image_name );
 void plugin_menu_select( int entry );

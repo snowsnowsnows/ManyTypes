@@ -50,10 +50,9 @@ std::string debug_print_cursor( const CXCursor& cursor )
 
     if ( file )
     {
-        CXString file_name_str = clang_getFileName( file );
+        cx_wrapper<CXString, clang_disposeString> file_name_str = clang_getFileName( file );
         std::string filename = clang_getCString( file_name_str );
 
-        clang_disposeString( file_name_str );
         return std::format( "{}:{}:{}", filename, line, column );
     }
 
@@ -614,12 +613,13 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
         c_args.push_back( arg.c_str() );
 
 #ifdef _DEBUG
-    if ( const auto index = clang_createIndex( 0, 1 ) )
+    auto display_diagnostics = true;
 #else
-    if ( const auto index = clang_createIndex( 0, 0 ) )
-#endif
+    auto display_diagnostics = false;
+#endif // _DEBUG
+    if ( cx_wrapper<CXIndex, clang_disposeIndex> index = clang_createIndex( 0, display_diagnostics ) )
     {
-        CXTranslationUnit tu = nullptr;
+        cx_wrapper<CXTranslationUnit, clang_disposeTranslationUnit> tu;
         const auto error = clang_parseTranslationUnit2(
             index,
             (char*)src_path.u8string().c_str(),
@@ -641,16 +641,12 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
             bool error_found = false;
             for ( unsigned i = 0; i < num_diagnostics; i++ )
             {
-                const CXDiagnostic diagnostic = clang_getDiagnostic( tu, i );
+                cx_wrapper<CXDiagnostic, clang_disposeDiagnostic> diagnostic = clang_getDiagnostic( tu, i );
                 const CXDiagnosticSeverity severity = clang_getDiagnosticSeverity( diagnostic );
                 if ( severity == CXDiagnostic_Error || severity == CXDiagnostic_Fatal )
                 {
-                    const CXString formatted_diag = clang_formatDiagnostic(diagnostic, clang_defaultDiagnosticDisplayOptions());
-                    diagnostic_output += std::format( "diagnostic {} {}\n", i, clang_getCString(formatted_diag) );
-
-                    clang_disposeDiagnostic( diagnostic );
-                    clang_disposeString( formatted_diag );
-
+                    cx_wrapper<CXString, clang_disposeString> formatted_diag = clang_formatDiagnostic( diagnostic, clang_defaultDiagnosticDisplayOptions() );
+                    diagnostic_output += std::format( "diagnostic {} {}\n", i, clang_getCString( formatted_diag ) );
                     error_found = true;
                 }
             }
@@ -670,8 +666,6 @@ std::optional<type_database_t> parse_root_source( const std::filesystem::path& s
         {
             throw TuException( error );
         }
-
-        clang_disposeTranslationUnit( tu );
     }
 
     return std::nullopt;

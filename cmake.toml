@@ -1,8 +1,7 @@
 [project]
 name = "ManyTypes"
-msvc-runtime="dynamic"
+msvc-runtime="static"
 include-before = [
-    "cmake/msvc-static-runtime.cmake",
     "cmake/msvc-configurations.cmake",
 ]
 
@@ -41,7 +40,6 @@ add-function = "x64dbg_plugin"
 
 [target.manytypes-plugin]
 type = "plugin"
-msvc-runtime="static"
 sources = ["manytypes-plugin/**"]
 headers = ["manytypes-plugin/**"]
 link-libraries = ["::manytypes-lib"]

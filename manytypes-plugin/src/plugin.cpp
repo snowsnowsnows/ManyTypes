@@ -44,6 +44,8 @@ static void plugin_run_loop()
     const auto manytypes_root = run_root / "ManyTypes";
     const auto manytypes_artifacts = manytypes_root / ".artifacts";
 
+    create_directories( manytypes_artifacts );
+
     const auto dbg_workspace = manytypes_root / norm_image_name;
     const auto dbg_workspace_root = dbg_workspace / "project.h";
 
@@ -84,9 +86,6 @@ static void plugin_run_loop()
     const std::filesystem::path global = manytypes_root / "global.h";
     create_file( global );
 
-    const std::filesystem::path src_root = manytypes_artifacts / "source.cpp";
-    create_file( src_root );
-
     try
     {
 #ifdef _M_IX86
@@ -96,7 +95,7 @@ static void plugin_run_loop()
 #endif
         std::lock_guard typedb_lock( g_typedb_mutex );
 
-        auto typedb = mt::parse_root_source( src_root, is_bit32 );
+        auto typedb = mt::parse_root_source( dbg_workspace_root, is_bit32 );
         if ( typedb )
         {
             auto& db = *typedb;
@@ -138,16 +137,29 @@ void set_workspace_target( std::string image_name )
     g_curr_image_name = std::string( image_name );
 }
 
+static std::wstring utf8_to_utf16( const char* str )
+{
+    int required_size = MultiByteToWideChar( CP_UTF8, 0, str, -1, 0, 0 );
+    if ( required_size <= 0 )
+        return {};
+
+    std::wstring utf16( required_size - 1, L'\0' );
+    MultiByteToWideChar( CP_UTF8, 0, str, -1, utf16.data(), required_size );
+    return utf16;
+}
+
 void plugin_menu_select( const int entry )
 {
     switch ( entry )
     {
-    case 0:
+    case OPEN_EXPLORER_MANYTYPES:
+    {
         const auto manytypes_root = std::filesystem::current_path() / "ManyTypes";
-        const auto target_path_cstr = reinterpret_cast<LPCSTR>( manytypes_root.u8string().c_str() );
+        const auto target_path = utf8_to_utf16( (char*)manytypes_root.u8string().c_str() );
 
-        ShellExecuteA( nullptr, "open", "explorer.exe", target_path_cstr, nullptr, SW_SHOWNORMAL );
-        break;
+        ShellExecuteW( nullptr, L"explore", target_path.c_str(), nullptr, nullptr, SW_SHOWNORMAL );
+    }
+    break;
     }
 }
 

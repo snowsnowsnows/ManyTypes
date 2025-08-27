@@ -5,7 +5,7 @@
 enum
 {
     OPEN_EXPLORER_MANYTYPES,
-    OPEN_VSCODE_MANYTYPES,
+    OPEN_MANYTYPES,
 };
 
 void set_workspace_target( std::string image_name );

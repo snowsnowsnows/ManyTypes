@@ -9,7 +9,7 @@
 #include "manytypes-lib/formatter/clang.h"
 #include "manytypes-lib/util/util.h"
 
-static std::string g_curr_image_name;
+static std::u8string g_curr_image_name;
 
 static std::mutex g_typedb_mutex;
 static std::optional<mt::type_database_t> g_typedb = std::nullopt;
@@ -36,9 +36,6 @@ static void plugin_run_loop()
     if ( g_curr_image_name.empty() )
         return;
 
-    auto image_path = std::filesystem::u8path( g_curr_image_name );
-
-    auto norm_image_name = image_path.stem();
     const auto run_root = std::filesystem::current_path();
 
     const auto manytypes_root = run_root / "ManyTypes";
@@ -46,7 +43,7 @@ static void plugin_run_loop()
 
     create_directories( manytypes_artifacts );
 
-    const auto dbg_workspace = manytypes_root / norm_image_name;
+    const auto dbg_workspace = manytypes_root / g_curr_image_name;
     const auto dbg_workspace_root = dbg_workspace / "project.h";
 
     if ( create_file( dbg_workspace_root ) )
@@ -101,7 +98,7 @@ static void plugin_run_loop()
             auto& db = *typedb;
             g_typedb = typedb;
 
-            std::filesystem::path norm_image_json = norm_image_name;
+            std::filesystem::path norm_image_json = g_curr_image_name;
             norm_image_json.replace_extension( ".json" );
 
             std::filesystem::path target_db = manytypes_artifacts / norm_image_json;
@@ -134,7 +131,10 @@ static void plugin_run_loop()
 
 void set_workspace_target( std::string image_name )
 {
-    g_curr_image_name = std::string( image_name );
+    auto image_path = std::filesystem::path( (char8_t*)image_name.c_str() );
+    auto norm_image_name = image_path.stem();
+
+    g_curr_image_name = norm_image_name.u8string();
 }
 
 static std::wstring utf8_to_utf16( const char* str )
@@ -150,13 +150,33 @@ static std::wstring utf8_to_utf16( const char* str )
 
 void plugin_menu_select( const int entry )
 {
+    if ( g_curr_image_name.empty() )
+        return;
+
+    const auto manytypes_root = std::filesystem::current_path() / "ManyTypes" / g_curr_image_name;
     switch ( entry )
     {
+    case OPEN_MANYTYPES:
+    {
+        const auto manytypes_project = manytypes_root / "project.h";
+        if (!exists( manytypes_project ))
+        {
+            dprintf("project.h file does not exist. start a debug session\n");
+            break;
+        }
+
+        const auto target_path = utf8_to_utf16( (char*)manytypes_project.u8string().c_str() );
+        ShellExecuteW( nullptr, L"open", target_path.c_str(), nullptr, nullptr, SW_SHOWNORMAL );
+    }
     case OPEN_EXPLORER_MANYTYPES:
     {
-        const auto manytypes_root = std::filesystem::current_path() / "ManyTypes";
-        const auto target_path = utf8_to_utf16( (char*)manytypes_root.u8string().c_str() );
+        if (!exists( manytypes_root ))
+        {
+            dprintf("project root does not exist. start a debug session\n");
+            break;
+        }
 
+        const auto target_path = utf8_to_utf16( (char*)manytypes_root.u8string().c_str() );
         ShellExecuteW( nullptr, L"explore", target_path.c_str(), nullptr, nullptr, SW_SHOWNORMAL );
     }
     break;
@@ -247,7 +267,8 @@ void plugin_stop()
 // Do GUI/Menu related things here.
 void plugin_setup()
 {
-    _plugin_menuaddentry( hMenu, OPEN_EXPLORER_MANYTYPES, "Open in Explorer" );
+    _plugin_menuaddentry( hMenu, OPEN_EXPLORER_MANYTYPES, "Open Folder" );
+    _plugin_menuaddentry( hMenu, OPEN_MANYTYPES, "Open Project File" );
     _plugin_registercommand( pluginHandle, "pt", plugin_handle_pt, true );
 
     //_plugin_menuaddentry(hMenu, OPEN_VSCODE_MANYTYPES, "Open ManyTypes VSCode");

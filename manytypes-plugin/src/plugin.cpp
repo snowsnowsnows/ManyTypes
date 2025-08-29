@@ -167,6 +167,7 @@ void plugin_menu_select( const int entry )
 
         const auto target_path = utf8_to_utf16( (char*)manytypes_project.u8string().c_str() );
         ShellExecuteW( nullptr, L"open", target_path.c_str(), nullptr, nullptr, SW_SHOWNORMAL );
+        break;
     }
     case OPEN_EXPLORER_MANYTYPES:
     {
@@ -178,6 +179,7 @@ void plugin_menu_select( const int entry )
 
         const auto target_path = utf8_to_utf16( (char*)manytypes_root.u8string().c_str() );
         ShellExecuteW( nullptr, L"explore", target_path.c_str(), nullptr, nullptr, SW_SHOWNORMAL );
+        break;
     }
     break;
     }

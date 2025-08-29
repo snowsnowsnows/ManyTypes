@@ -156,7 +156,7 @@ void plugin_menu_select( const int entry )
     const auto manytypes_root = std::filesystem::current_path() / "ManyTypes" / g_curr_image_name;
     switch ( entry )
     {
-    case OPEN_MANYTYPES:
+    case EDIT_MANYTYPES:
     {
         const auto manytypes_project = manytypes_root / "project.h";
         if (!exists( manytypes_project ))
@@ -267,8 +267,8 @@ void plugin_stop()
 // Do GUI/Menu related things here.
 void plugin_setup()
 {
-    _plugin_menuaddentry( hMenu, OPEN_EXPLORER_MANYTYPES, "Open Folder" );
-    _plugin_menuaddentry( hMenu, OPEN_MANYTYPES, "Open Project File" );
+    _plugin_menuaddentry( hMenu, OPEN_EXPLORER_MANYTYPES, "Open Project Folder" );
+    _plugin_menuaddentry( hMenu, EDIT_MANYTYPES, "Edit Project Header" );
     _plugin_registercommand( pluginHandle, "pt", plugin_handle_pt, true );
 
     //_plugin_menuaddentry(hMenu, OPEN_VSCODE_MANYTYPES, "Open ManyTypes VSCode");

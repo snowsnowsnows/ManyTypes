@@ -151,7 +151,10 @@ static std::wstring utf8_to_utf16( const char* str )
 void plugin_menu_select( const int entry )
 {
     if ( g_curr_image_name.empty() )
+    {
+        dprintf("no image currently selected. start a debug session\n");
         return;
+    }
 
     const auto manytypes_root = std::filesystem::current_path() / "ManyTypes" / g_curr_image_name;
     switch ( entry )
@@ -161,7 +164,7 @@ void plugin_menu_select( const int entry )
         const auto manytypes_project = manytypes_root / "project.h";
         if (!exists( manytypes_project ))
         {
-            dprintf("project.h file does not exist. start a debug session\n");
+            dprintf("project.h file does not exist\n");
             break;
         }
 
@@ -173,7 +176,7 @@ void plugin_menu_select( const int entry )
     {
         if (!exists( manytypes_root ))
         {
-            dprintf("project root does not exist. start a debug session\n");
+            dprintf("project root does not exist\n");
             break;
         }
 

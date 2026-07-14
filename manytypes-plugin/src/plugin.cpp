@@ -1,5 +1,6 @@
 #include "plugin.h"
 
+#include <cstdlib>
 #include <filesystem>
 #include <queue>
 #include <string>
@@ -242,6 +243,14 @@ bool plugin_handle_pt( int argc, char** t )
 // Initialize your plugin data here.
 bool plugin_init( PLUG_INITSTRUCT* initStruct )
 {
+    // libclang enables LLVM's CrashRecoveryContext in clang_createIndex, which
+    // installs a process-wide vectored exception handler that swallows unhandled
+    // exceptions on threads without an active recovery context. Inside x64dbg this
+    // makes any debugger crash terminate the process silently instead of reaching
+    // WER (crash dumps, JIT debugger). Disabling it means a crash in the clang
+    // parser now crashes the host visibly, which is the better trade-off here.
+    _putenv_s( "LIBCLANG_DISABLE_CRASH_RECOVERY", "1" );
+
     // HACK: there is a bug in libclang.dll that causes a crash if unloaded before
     // process exit. As a workaround we increase the ref count of the library, so
     // that it doesn't get unloaded until the process exits. This happens because
